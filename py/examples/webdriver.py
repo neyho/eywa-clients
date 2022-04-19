@@ -10,6 +10,7 @@ task.warn("Uuuu you should be scared")
 task.update_task()
 # task.close(task.ERROR)
 
+print('Evo nekog texta')
 task.update_task(status=task.PROCESSING)
 task.info("Opening Chrome browser")
 browser = webdriver.Chrome()
@@ -18,6 +19,7 @@ task.info("Navigation to index.hr")
 browser.get("http://www.index.hr")
 task.info("Index.hr visible")
 
+print('Evo nek se nade tko se vidi')
 time.sleep(10)
 
 browser.close()
