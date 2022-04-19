@@ -1,0 +1,5 @@
+type Mutation {
+  pythonWebdriverExample:STDResult
+  @execute(command: "cd py")
+  @execute(command: "python -m examples.webdriver")
+}

@@ -1,4 +1,0 @@
-type Mutation {
-  runWebdriverExample:Boolean
-  @execute("python -m examples.webdriver")
-}
