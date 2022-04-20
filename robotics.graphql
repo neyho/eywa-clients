@@ -1,5 +1,9 @@
 type Mutation {
   pythonWebdriverExample:STDResult
-  @execute(command: "cd py")
-  @execute(command: "python -m examples.webdriver")
+  @robot(
+    id: "mSUX2vpXSb8-lBzTfp8fj"
+    name: "Example Webdriver Robot in Python"
+    execute: [
+    "cd py"
+    "python -m examples.webdriver"])
 }
