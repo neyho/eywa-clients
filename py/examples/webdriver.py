@@ -1,5 +1,4 @@
 from eywa import Task
-import time
 from selenium import webdriver
 
 task=Task()
@@ -15,14 +14,10 @@ task.update_task(status=task.PROCESSING)
 task.info("Opening Chrome browser")
 browser = webdriver.Chrome()
 task.info("Chrome opened")
-task.info("Navigation to index.hr")
-browser.get("http://www.index.hr")
-task.info("Index.hr visible")
-
-print('Evo nek se nade tko se vidi')
-time.sleep(10)
-
+task.info("Navigation to www.google.com")
+browser.get("http://www.google.com")
+task.info("Google visible")
 browser.close()
 task.info("Browser closed")
-task.report("Everything went just fine",{'pici':'mici'})
+task.report("Everything went just fine",{'hanky':'dory'})
 task.close(task.SUCCESS)
