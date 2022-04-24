@@ -11,7 +11,7 @@ type Mutation {
   pythonWebdriverExample:STDResult
   @robot(
     euuid: "62fa3d62-3511-4769-830e-03ba43e3064b"
-    name: "Example Webdriver Robot in Python")
+    name: "Webdriver Google Test")
   @execute(commands: [
     "cd py"
     "python -m examples.webdriver"])
