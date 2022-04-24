@@ -1,12 +1,18 @@
 type Mutation {
+  "Update python packages"
+  onGitUpdate:STDResult
+  @execute(commands:[
+    "cd py"
+    "pip install -r requirements"])
+
   """Example webdriver robot that opens browser than
   navigates to http://www.index.html and afther that closes
   browser."""
   pythonWebdriverExample:STDResult
   @robot(
-    id: "mSUX2vpXSb8-lBzTfp8fj"
-    name: "Example Webdriver Robot in Python"
-    execute: [
+    euuid: "62fa3d62-3511-4769-830e-03ba43e3064b"
+    name: "Example Webdriver Robot in Python")
+  @execute(commands: [
     "cd py"
     "python -m examples.webdriver"])
 }
