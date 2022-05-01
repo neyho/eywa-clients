@@ -12,7 +12,30 @@ type Mutation {
   @robot(
     euuid: "62fa3d62-3511-4769-830e-03ba43e3064b"
     name: "Webdriver Google Test")
-  @execute(commands: [
+    @execute(commands: [
+    "cd py"
+    "python -m examples.webdriver"])
+
+  """Example webdriver robot that opens browser than
+  navigates to 'site' URL and afther that closes
+  browser."""
+  pythonWebdriverExample2(site:String):STDResult
+  @robot(
+    euuid: "eccdc6e5-654e-4c18-9293-a38626ea17c4"
+    name: "Webdriver URL input test")
+    @execute(commands: [
+    "cd py"
+    "python -m examples.webdriver"])
+
+
+  """Example webdriver robot that opens browser than
+  navigates to list of 'sites' URL and afther that closes
+  browser."""
+  pythonWebdriverExample3(sites:[String]):STDResult
+  @robot(
+    euuid: "25c45bcf-b9cf-4dd4-990e-4b0c8b167e2a"
+    name: "Webdriver URL input test")
+    @execute(commands: [
     "cd py"
     "python -m examples.webdriver"])
 }
