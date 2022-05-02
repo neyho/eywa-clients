@@ -34,7 +34,7 @@ type Mutation {
   pythonWebdriverExample3(sites:[String]):STDResult
   @robot(
     euuid: "25c45bcf-b9cf-4dd4-990e-4b0c8b167e2a"
-    name: "Webdriver URL input test")
+    name: "Webdriver URL list input test")
     @execute(commands: [
     "cd py"
     "python -m examples.webdriver"])
