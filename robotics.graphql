@@ -1,3 +1,15 @@
+input Arg1 {
+  f1: Int
+  f2: String
+  f3: Float
+  f4: Boolean
+}
+
+input Arg2 {
+  g1: String
+  g2: [Arg1]
+}
+
 type Mutation {
   "Update python packages"
   onGitUpdate:STDResult
@@ -11,8 +23,9 @@ type Mutation {
   pythonWebdriverExample:STDResult
   @robot(
     euuid: "62fa3d62-3511-4769-830e-03ba43e3064b"
-    name: "Webdriver Google Test")
-    @execute(commands: [
+    name: "Webdriver Google Test"
+  )
+  @execute(commands: [
     "cd py"
     "python -m examples.webdriver"])
 
@@ -22,8 +35,9 @@ type Mutation {
   pythonWebdriverExample2(site:String):STDResult
   @robot(
     euuid: "eccdc6e5-654e-4c18-9293-a38626ea17c4"
-    name: "Webdriver URL input test")
-    @execute(commands: [
+    name: "Webdriver URL input test"
+  )
+  @execute(commands: [
     "cd py"
     "python -m examples.webdriver"])
 
@@ -31,11 +45,12 @@ type Mutation {
   """Example webdriver robot that opens browser than
   navigates to list of 'sites' URL and afther that closes
   browser."""
-  pythonWebdriverPimple(sites:[String]):STDResult
+  pythonWebdriverPimple(sites:[String], t1: A2, t2: A1):STDResult
   @robot(
     euuid: "25c45bcf-b9cf-4dd4-990e-4b0c8b167e2a"
-    name: "Webdriver URL list input test")
-    @execute(commands: [
+    name: "Webdriver URL list input test"
+  )
+  @execute(commands: [
     "cd py"
     "python -m examples.webdriver"])
 }
