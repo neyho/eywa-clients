@@ -19,8 +19,8 @@ input Arg2 {
   g1: String
   g2: [Arg1]
   en: [SamplE]
-  @label(default: "Some text")
-  @placeholder(default: "Is it so")
+  @label(value: "Some text")
+  @placeholder(value: "Is it so")
 }
 
 type Mutation {
