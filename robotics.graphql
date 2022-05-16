@@ -45,7 +45,7 @@ type Mutation {
   """Example webdriver robot that opens browser than
   navigates to list of 'sites' URL and afther that closes
   browser."""
-  pythonWebdriverPimple(sites:[String], t1: A2, t2: A1):STDResult
+  pythonWebdriverPimple(sites:[String], t1: Arg2, t2: Arg1):STDResult
   @robot(
     euuid: "25c45bcf-b9cf-4dd4-990e-4b0c8b167e2a"
     name: "Webdriver URL list input test"
