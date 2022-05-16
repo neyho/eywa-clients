@@ -1,5 +1,8 @@
 enum SamplE {
-  A1
+  A1_HR
+  @label(value: "A1 Rvatska")
+  A1_MK
+  @label(value: "Zlice")
   IVS
   PBZ
   TDR
