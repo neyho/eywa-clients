@@ -11,8 +11,8 @@ enum SamplE {
 
 input Arg1 {
   f1: Int
-  @label(default: "Ma neka")
-  @placeholder(default: "Se sruse pinjoli")
+  @label(value: "Ma neka")
+  @placeholder(value: "Se sruse pinjoli")
   f2: String
   f3: Float
   f4: Boolean
