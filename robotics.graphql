@@ -18,6 +18,7 @@ input Arg1 {
   f4: Boolean
 }
 
+
 input Arg2 {
   g1: String
   g2: [Arg1]
@@ -26,12 +27,16 @@ input Arg2 {
   @placeholder(value: "Is it so")
 }
 
+
 type Mutation {
+
   "Update python packages"
   onGitUpdate:STDResult
   @execute(commands:[
     "cd py"
     "pip install -r requirements.txt"])
+
+
 
   """Example webdriver robot that opens browser than
   navigates to http://www.index.html and afther that closes
@@ -41,32 +46,44 @@ type Mutation {
     euuid: "62fa3d62-3511-4769-830e-03ba43e3064b"
     name: "Webdriver Google Test"
   )
+  @clipboard_input
   @execute(commands: [
     "cd py"
     "python -m examples.webdriver"])
 
+
+
   """Example webdriver robot that opens browser than
   navigates to 'site' URL and afther that closes
   browser."""
-  pythonWebdriverExample2(site:String):STDResult
+  pythonWebdriverExample2(
+    site:String
+  ):STDResult
   @robot(
     euuid: "eccdc6e5-654e-4c18-9293-a38626ea17c4"
     name: "Webdriver URL input test"
   )
+  @clipboard_input
   @execute(commands: [
     "cd py"
     "python -m examples.webdriver"])
+
 
 
   """Example webdriver robot that opens browser than
   navigates to list of 'sites' URL and afther that closes
   browser."""
-  pythonWebdriverPimple(sites:[String], t1: Arg2, t2: Arg1):STDResult
-  @robot(
-    euuid: "25c45bcf-b9cf-4dd4-990e-4b0c8b167e2a"
-    name: "Webdriver URL list input test"
-  )
-  @execute(commands: [
+  pythonWebdriverPimple(
+    sites:[String],
+    @label(value: "Add site")
+    t1: Arg2,
+    t2: Arg1):STDResult
+    @robot(
+      euuid: "25c45bcf-b9cf-4dd4-990e-4b0c8b167e2a"
+      name: "Webdriver URL list input test"
+    )
+    @form_input
+    @execute(commands: [
     "cd py"
     "python -m examples.webdriver"])
 }
