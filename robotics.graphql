@@ -62,6 +62,7 @@ type Mutation {
   @robot(
     euuid: "eccdc6e5-654e-4c18-9293-a38626ea17c4"
     name: "Webdriver URL input test"
+    task_message: "URL: {{site}}"
   )
   @clipboard_input
   @execute(commands: [
