@@ -16,6 +16,9 @@ input Arg1 {
   f2: String
   f3: Float
   f4: Boolean
+  f5: Timestamp
+  f6: Encrypted
+  f7: Hash
 }
 
 
