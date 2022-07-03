@@ -87,7 +87,10 @@ type Mutation {
     sites:[String],
     @label(value: "Site")
     t1: Arg2,
-    t2: Arg1):STDResult
+    @label(value: "Section 1")
+    t2: Arg1
+    @label(value: "Section 2")
+  ):STDResult
     @robot(
       euuid: "25c45bcf-b9cf-4dd4-990e-4b0c8b167e2a"
       name: "Webdriver URL list input test"
