@@ -85,7 +85,7 @@ type Mutation {
   browser."""
   pythonWebdriverPimple(
     sites:[String],
-    @label(value: "Add site")
+    @label(value: "Site")
     t1: Arg2,
     t2: Arg1):STDResult
     @robot(
