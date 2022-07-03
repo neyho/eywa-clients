@@ -18,7 +18,7 @@ input Arg1 {
   f3: Float
   @label(value: "Float input")
   f4: Boolean
-  @label(value: "Boolean input)
+  @label(value: "Boolean input")
   f5: Timestamp
   @label(value: "Datum input")
   f6: Encrypted
