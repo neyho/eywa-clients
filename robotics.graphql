@@ -14,11 +14,17 @@ input Arg1 {
   @label(value: "Ma neka")
   @placeholder(value: "Se sruse pinjoli")
   f2: String
+  @label(value: "Decko moj")
   f3: Float
+  @label(value: "Float input")
   f4: Boolean
+  @label(value: "Boolean input)
   f5: Timestamp
+  @label(value: "Datum input")
   f6: Encrypted
+  @label(value: "Encrytped input")
   f7: Hash
+  @label(value: "Hash input")
 }
 
 
