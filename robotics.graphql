@@ -31,6 +31,7 @@ input Arg1 {
 input Arg2 {
   g1: String
   g2: [Arg1]
+  @label(value: "Subsection 3")
   en: [SamplE]
   @label(value: "Some text")
   @placeholder(value: "Is it so")
