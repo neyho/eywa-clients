@@ -95,6 +95,8 @@ type Mutation {
     @robot(
       euuid: "25c45bcf-b9cf-4dd4-990e-4b0c8b167e2a"
       name: "Webdriver URL list input test"
+      task_message: """Sites: 
+      {% for site in sites %}  *  {{site}}{% ifunequal forloop.counter forloop.length %}\n{% endifunequal%}{% endfor %}"""
     )
     @form_input
     @execute(commands: [
