@@ -1,4 +1,5 @@
 import jsonrpyc
+import time
 import datetime
 import json
 import sys
@@ -50,7 +51,57 @@ class TaskReport():
 # print(json.dumps({'a':2,'b':'4444'}))
 
 
-rpc = jsonrpyc.RPC(stdout=sys.stdout,stdin=sys.stdin)
+class EYWARPC(jsonrpyc.RPC):
+    def call(self, method, args=(), kwargs=None, callback=None, block=0):
+        """
+        Performs an actual remote procedure call by writing a request representation (a string) to
+        the output stream. The remote RPC instance uses *method* to route to the actual method to
+        call with *args* and *kwargs*. When *callback* is set, it will be called with the result of
+        the remote call. When *block* is larger than *0*, the calling thread is blocked until the
+        result is received. In this case, *block* will be the poll interval, emulating synchronuous
+        return value behavior. When both *callback* is *None* and *block* is *0* or smaller, the
+        request is considered a notification and the remote RPC instance will not send a response.
+        """
+        # default kwargs
+        if kwargs is None:
+            kwargs = {}
+
+        # check if the call is a notification
+        is_notification = callback is None and block <= 0
+
+        # create a new id for requests expecting a response
+        id = None
+        if not is_notification:
+            self._i += 1
+            id = self._i
+
+        # register the callback
+        if callback is not None:
+            self._callbacks[id] = callback
+
+        # store an empty result for the meantime
+        if block > 0:
+            self._results[id] = self.EMPTY_RESULT
+
+        # create the request
+        params = args
+        req = jsonrpyc.Spec.request(method, id=id, params=params)
+        self._write(req)
+
+        # blocking return value behavior
+        if block > 0:
+            while True:
+                if self._results[id] != self.EMPTY_RESULT:
+                    result = self._results[id]
+                    del self._results[id]
+                    if isinstance(result, Exception):
+                        raise result
+                    else:
+                        return result
+                time.sleep(block)
+
+
+rpc = EYWARPC(stdout=sys.stdout,stdin=sys.stdin)
 
 class Task():
     SUCCESS = "SUCCESS"
