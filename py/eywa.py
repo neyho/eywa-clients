@@ -118,8 +118,8 @@ class Task():
         if (time == None):
             time= datetime.datetime.utcnow().isoformat()
 
-        rpc.call("task.frog", {"time": time, "event":event,"message":message,
-                                   "data":data,"coordinates":coordinates,"duration":duration})
+        rpc.call("task.log", {"time": time, "event":event,"message":message,
+            "data":data,"coordinates":coordinates,"duration":duration})
 
     def info(self,message,data=None):
         self.log("INFO", message, data)
