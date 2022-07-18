@@ -113,7 +113,11 @@ class Task():
             data=None,
             duration=None,
             coordinates=None,
-            time=datetime.datetime.utcnow().isoformat()):
+            time=None):
+
+        if (time == None):
+            time= datetime.datetime.utcnow().isoformat()
+
         rpc.call("task.log", {"time": time, "event":event,"message":message,
                                    "data":data,"coordinates":coordinates,"duration":duration})
 
