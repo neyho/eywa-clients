@@ -9,7 +9,7 @@ task.warn("Uuuu you should be scared")
 task.update_task()
 # task.close(task.ERROR)
 
-print('Evo nekog texta')
+# print('Evo nekog texta')
 task.update_task(status=task.PROCESSING)
 task.info("Opening Chrome browser")
 browser = webdriver.Chrome()
