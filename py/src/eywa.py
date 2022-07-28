@@ -1,3 +1,8 @@
+"""EYWA Reacher client"""
+
+__version__ = "0.0.1"
+
+
 import jsonrpyc
 import time
 import datetime
