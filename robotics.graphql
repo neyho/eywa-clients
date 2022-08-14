@@ -92,14 +92,25 @@ type Mutation {
     t2: Arg1
     @label(value: "Section 2")
   ):STDResult
-    @robot(
-      euuid: "25c45bcf-b9cf-4dd4-990e-4b0c8b167e2a"
-      name: "Webdriver URL list input test"
-      task_message: """Sites:{% for site in sites %}
+  @robot(
+    euuid: "25c45bcf-b9cf-4dd4-990e-4b0c8b167e2a"
+    name: "Webdriver URL list input test"
+    task_message: """Sites:{% for site in sites %}
         *  {{site}}{% endfor %}"""
-    )
-    @form_input
-    @execute(commands: [
+  )
+  @form_input
+  @execute(commands: [
     "cd py"
-    "python -m examples.webdriver"])
+    "python -m examples.webdriver"]
+  )
+
+  """Example webdriver scheduled robot"""
+  pythonWebdriverScheduleExample:STDResult
+  @robot(
+    euuid: "612870a8-d031-480c-8552-857cfbda0967"
+    name: "Webdriver schedule example"
+    task_message: "Schedule triggered!")
+  @execute(commands: [
+    "cd py"
+   "python -m examples.webdriver"])
 }
