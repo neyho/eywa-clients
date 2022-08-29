@@ -109,7 +109,7 @@ type Mutation {
   @robot(
     euuid: "612870a8-d031-480c-8552-857cfbda0967"
     name: "Webdriver schedule example"
-    schedule: "0 0/3"
+    schedule: "0 0/30"
     task_message: "Schedule triggered!")
   @execute(commands: [
     "cd py"
