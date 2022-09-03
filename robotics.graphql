@@ -113,5 +113,16 @@ type Mutation {
     task_message: "Schedule triggered!")
   @execute(commands: [
     "cd py"
-   "python -m examples.webdriver"])
+    "python -m examples.webdriver"])
+
+
+  """Example EYWA dataset GraphQL robot"""
+  pythonEYWAGraphqlExample:STDResult
+  @robot(
+    euuid: "a0dfada7-36cd-491e-ae24-55d3be6b237e"
+    name: "EYWA Dataset Example"
+    task_message: "Assigned!")
+  @execute(commands: [
+    "cd py"
+    "python -m examples.graphql"])
 }
