@@ -1,6 +1,6 @@
 """EYWA Reacher client"""
 
-__version__ = "0.0.1"
+__version__ = "0.0.2"
 
 
 import jsonrpyc
@@ -58,15 +58,6 @@ class TaskReport():
 
 class EYWARPC(jsonrpyc.RPC):
     def call(self, method, args=(), kwargs=None, callback=None, block=0):
-        """
-        Performs an actual remote procedure call by writing a request representation (a string) to
-        the output stream. The remote RPC instance uses *method* to route to the actual method to
-        call with *args* and *kwargs*. When *callback* is set, it will be called with the result of
-        the remote call. When *block* is larger than *0*, the calling thread is blocked until the
-        result is received. In this case, *block* will be the poll interval, emulating synchronuous
-        return value behavior. When both *callback* is *None* and *block* is *0* or smaller, the
-        request is considered a notification and the remote RPC instance will not send a response.
-        """
         # default kwargs
         if kwargs is None:
             kwargs = {}
@@ -142,8 +133,10 @@ class Task():
         self.log("TRACE",message,data)
 
     def report(self,message,data=None,image=None):
-        rpc.call("task.report", {"message":message,"data": data,
-                                      "image":image})
+        rpc.call("task.report",
+                {"message":message,
+                 "data": data,
+                 "image":image})
 
     def close(self,status=SUCCESS):
         rpc.call("task.close", {"status":status})
@@ -156,6 +149,10 @@ class Task():
     def update_task(self, status=PROCESSING):
         rpc.call("task.update",{"status":status})
 
+
     def return_task(self):
         rpc.call("task.return")
         sys.exit(0)
+
+def graphql(query):
+    return rpc.call("eywa.datasets.graphql", query, None, None, 10)
