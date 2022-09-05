@@ -3,6 +3,7 @@ import eywa
 task=eywa.Task()
 
 query = """
+{
     searchUser (name:{_ilike:}) {
         euuid
         name
@@ -11,7 +12,11 @@ query = """
         modified_by {
             name
         }
-    }"""
+    }
+}"""
+
+
+print(eywa.rpc.watchdog)
 
 task.info('hfoiqfioq')
 response = eywa.graphql({'query': query, 'variables': {'a': 10, 'b':20}})

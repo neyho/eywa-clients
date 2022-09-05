@@ -120,9 +120,20 @@ type Mutation {
   pythonEYWAGraphqlExample:STDResult
   @robot(
     euuid: "a0dfada7-36cd-491e-ae24-55d3be6b237e"
-    name: "EYWA Dataset Example"
+    name: "EYWA Dataset Example in Python"
     task_message: "Assigned!")
   @execute(commands: [
     "cd py"
     "python -m examples.graphql"])
+
+
+  """Example EYWA dataset GraphQL robot"""
+  babashkaEYWAGraphqlExample:STDResult
+  @robot(
+    euuid: "095aa4ed-2683-4326-9a5e-f92b7069a724"
+    name: "EYWA Dataset Example in Babaska"
+    task_message: "Assigned!")
+  @execute(commands: [
+    "cd bb"
+    "bb -m reacher.rpc"])
 }

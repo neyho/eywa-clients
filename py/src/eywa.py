@@ -155,4 +155,4 @@ class Task():
         sys.exit(0)
 
 def graphql(query):
-    return rpc.call("eywa.datasets.graphql", query, None, None, 10)
+    return rpc.call("eywa.datasets.graphql", query, None, 10)
