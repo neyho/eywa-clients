@@ -32,6 +32,4 @@
 (defn -main [& _]
   (show-users)
   (let [in (read-output)]
-    (println "RECEIVED OUTPUT: " in)
-    (doall (spit "eywa_response.json" in))
-    (println "EVERYTHING WENT ALRIGHT")))
+    (spit "eywa_response.json" in)))

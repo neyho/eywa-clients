@@ -4,7 +4,7 @@ task=eywa.Task()
 
 query = """
 {
-    searchUser (name:{_ilike:}) {
+    searchUser {
         euuid
         name
         type
