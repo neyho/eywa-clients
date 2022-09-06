@@ -33,4 +33,5 @@
   (show-users)
   (let [in (read-output)]
     (println "RECEIVED OUTPUT: " in)
-    (spit "eywa_response.json" in)))
+    (doall (spit "eywa_response.json" in))
+    (println "EVERYTHING WENT ALRIGHT")))
