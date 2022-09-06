@@ -32,4 +32,5 @@
 (defn -main [& _]
   (show-users)
   (let [in (read-output)]
+    (println "RECEIVED OUTPUT: " in)
     (spit "eywa_response.json" in)))
