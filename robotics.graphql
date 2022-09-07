@@ -40,13 +40,6 @@ input Arg2 {
 
 type Mutation {
 
-  "Update python packages"
-  onGitUpdate:STDResult
-  @execute(commands:[
-    "cd py"
-    "pip install -r requirements.txt"])
-
-
 
   """Example webdriver robot that opens browser than
   navigates to http://www.index.html and afther that closes
