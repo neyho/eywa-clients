@@ -1,18 +1,21 @@
-"""EYWA Reacher client"""
+# coding: utf-8
 
 __author__ = "Robert Gersak"
 __email__ = "r.gersak@gmail.com"
+__copyright__ = "Copyright 2021-, Robert Gersak"
+__credits__ = ["Robert Gersak"]
+__contact__ = "https://github.com/riga/jsonrpyc"
 __license__ = "MIT"
 __status__ = "Development"
-__version__ = "0.0.3"
+__version__ = "0.1"
+__all__ = ["RPC"]
 
 
-import time
-import datetime
+import io
 import json
 import sys
 import threading
-
+import time
 
 def check_id(id, allow_empty=False):
     if (id is not None or not allow_empty) and not isinstance(id, (int, str)):
@@ -105,22 +108,23 @@ def generate_error(id, code, data=None):
         return err
 
 
-EMPTY_RESULT = object()
 
 class EYWA():
-
-    def __new__(cls):
-        if not hasattr(cls, 'instance'):
-            cls.instance = super(EYWA, cls).__new__(cls)
-        return cls.instance
+    EMPTY_RESULT = object()
 
     def __init__(self):
+        stdin = sys.stdin
+        stdout = sys.stdout
+        self.stdin = io.open(stdin.fileno(), "rb")
+        self.stdout = io.open(stdout.fileno(), "wb")
+
         # other attributes
         self._i = -1
         self._callbacks = {}
         self._handlers= {}
         self._results = {}
 
+        # create and optionall start the watchdog
         self._connection= Line(self)
 
     def __del__(self):
@@ -128,38 +132,40 @@ class EYWA():
         if connection:
             connection.stop()
 
-    @classmethod
-    def request(cls, method, params):
+    def send(self, method, args=(),callback=None, block=0):
         # check if the call is a notification
-        eywa = EYWA()
+        is_notification = callback is None and block <= 0
+
         # create a new id for requests expecting a response
-        eywa._i += 1
-        id = eywa._i
+        id = None
+        if not is_notification:
+            self._i += 1
+            id = self._i
+
+        # register the callback
+        if callback is not None:
+            self._callbacks[id] = callback
 
         # store an empty result for the meantime
-        eywa._results[id] = EMPTY_RESULT
+        if block > 0:
+            self._results[id] = self.EMPTY_RESULT
 
         # create the request
+        params = args
         req = generate_request(method, id=id, params=params)
-        eywa._write(req)
+        self._write(req)
 
-        result  = EMPTY_RESULT
         # blocking return value behavior
-        while True:
-            if eywa._results[id] != EMPTY_RESULT:
-                result = eywa._results[id]
-                del eywa._results[id]
-                if isinstance(result, Exception):
-                   raise result
-                else:
-                    return result
-            time.sleep(0.1)   
-
-    @classmethod
-    def notify(cls, method, data = None):
-        eywa = EYWA()
-        req = generate_request(method, None, data)
-        eywa._write(req)
+        if block > 0:
+            while True:
+                if self._results[id] != self.EMPTY_RESULT:
+                    result = self._results[id]
+                    del self._results[id]
+                    if isinstance(result, Exception):
+                        raise result
+                    else:
+                        return result
+                time.sleep(block)
 
     def _handle(self, line):
         """
@@ -227,12 +233,12 @@ class EYWA():
         """
         Writes a string *s* to the output stream.
         """
-        sys.stdout.write(s + "\n")
-        sys.stdout.flush()
+        self.stdout.write(bytearray(s + "\n", "utf-8"))
+        self.stdout.flush()
 
 
 class Line(threading.Thread):
-    def __init__(self, tap, name="EYWAonline", interval=0.1, start=True):
+    def __init__(self, tap, name="EYWAonline", interval=0.1, daemon=False, start=True):
 
         super(Line, self).__init__()
 
@@ -240,7 +246,7 @@ class Line(threading.Thread):
         self.tap = tap
         self.name = name
         self.interval = interval
-        self.daemon = True
+        self.daemon = daemon
 
         # register a stop event
         self._stop = threading.Event()
@@ -257,16 +263,18 @@ class Line(threading.Thread):
     def run(self):
         self._stop.clear()
 
+        if not self.tap.stdin or self.tap.stdin.closed:
+            return
+
         while not self._stop.is_set():
             line= None
-            try:
-                line = sys.stdin.readline()
-            except IOError:
-                # prevent residual race conditions occurring when stdin is closed externally
-                pass
+
+            # stop when stdin is closed
+            if self.tap.stdin.closed:
+                break
 
             if line:
-                line = line.strip()
+                line = line.decode("utf-8").strip()
                 self.tap._handle(line)
             else:
                 self._stop.wait(self.interval)
@@ -405,115 +413,3 @@ class RPCServerError(RPCError):
 
     code = (-32099, -32000)
     title = "Server error"
-
-
-
-
-
-# EYWA INTERNALS
-
-class Sheet ():
-    def __init__(self, name = 'Sheet'):
-        self.name = name
-        self.rows = []
-        self.columns = []
-    def add_row(self,row):
-        self.rows.append(row)
-    def remove_row(self,row):
-        self.rows.remove(row)
-    def set_columns(self, columns):
-        self.columns = columns
-    def toJSON(self):
-        return json.dumps(self, default=lambda o:o.__dict__)
-
-
-class Table ():
-    def __init__(self, name = 'Table'):
-        self.name = name
-        self.sheets= []
-    def add_sheet(self,sheet):
-        self.sheets.append(sheet)
-    def remove_sheet(self,idx=0):
-        self.sheets.pop(idx)
-    def toJSON(self):
-        return json.dumps(self, default=lambda o:o.__dict__)
-
-
-# TODO finish task reporting
-class TaskReport():
-    def __init__(self,message, data=None, image=None):
-        self.message = message
-        self.data = data
-        self.image = image
-
-# ws1 = Sheet('miroslav')
-# ws1.add_row({'slaven':1,'belupo':2})
-# ws1.add_row({'slaven':30,'belupo':0})
-
-
-# t1 = Table('TEST')
-# t1.add_sheet(ws1)
-
-# print(t1.toJSON())
-# print(json.dumps({'a':2,'b':'4444'}))
-
-
-SUCCESS = "SUCCESS"
-ERROR = "ERROR"
-PROCESSING = "PROCESSING"
-EXCEPTION = "EXCEPTION"
-
-def log(event="INFO",
-        message=None,
-        data=None,
-        duration=None,
-        coordinates=None,
-        time=None):
-
-    if (time == None):
-        time= datetime.datetime.utcnow().isoformat()
-
-    EYWA.notify("task.log", {"time": time, "event":event,"message":message,
-        "data":data,"coordinates":coordinates,"duration":duration})
-
-def info(message,data=None):
-    log("INFO", message, data)
-
-def error(message,data=None):
-    log("ERROR", message, data)
-
-def warn(message,data=None):
-    log("WARN",message,data)
-
-def debug(message,data=None):
-    log("DEBUG",message,data)
-
-def trace(message,data=None):
-    log("TRACE",message,data)
-
-def report(message,data=None,image=None):
-    EYWA.notify("task.report",
-            {"message":message,
-                "data": data,
-                "image":image})
-
-def close(status=SUCCESS):
-    EYWA.notify("task.close", {"status":status})
-    if (status == ERROR):
-        exit_status=1
-    else:
-        exit_status=0
-    sys.exit(exit_status)
-
-def update_task(status=PROCESSING):
-    EYWA.notify("task.update",{"status":status})
-
-
-def return_task():
-    EYWA.notify("task.return")
-    sys.exit(0)
-
-def graphql(query):
-    return EYWA.request("eywa.datasets.graphql", query)
-
-eywa = EYWA()
