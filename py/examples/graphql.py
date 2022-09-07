@@ -4,7 +4,7 @@ task=eywa.Task()
 
 query = """
 {
-    searchUser (jdioq:) {
+    searchUser {
         euuid
         name
         type
