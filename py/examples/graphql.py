@@ -1,6 +1,5 @@
 import eywa
 
-task=eywa.Task()
 
 query = """
 {
@@ -16,12 +15,10 @@ query = """
 }"""
 
 
-print(eywa.rpc.watchdog)
-
-task.info('hfoiqfioq')
+eywa.info('hfoiqfioq')
 response = eywa.graphql({'query': query, 'variables': {'a': 10, 'b':20}})
 
-print('Response:\n' + response)
+print('Response:\n' + str(response))
 
 
 # {"jsonrpc":"2.0","id":0,"result":100} 

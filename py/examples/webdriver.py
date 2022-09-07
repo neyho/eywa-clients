@@ -1,23 +1,21 @@
-from eywa import Task
+import eywa
 from selenium import webdriver
 
-task=Task()
-
-task.error("Some shit happened")
-task.info("Normal as usual")
-task.warn("Uuuu you should be scared")
-task.update_task()
+eywa.error("Some shit happened")
+eywa.info("Normal as usual")
+eywa.warn("Uuuu you should be scared")
+eywa.update_task()
 # task.close(task.ERROR)
 
 print('Evo nekog texta')
-task.update_task(status=task.PROCESSING)
-task.info("Opening Chrome browser")
+eywa.update_task(status=eywa.PROCESSING)
+eywa.info("Opening Chrome browser")
 browser = webdriver.Chrome()
-task.info("Chrome opened")
-task.info("Navigation to www.google.com")
+eywa.info("Chrome opened")
+eywa.info("Navigation to www.google.com")
 browser.get("http://www.google.com")
-task.info("Google visible")
+eywa.info("Google visible")
 browser.close()
-task.info("Browser closed")
-task.report("Everything went just fine",{'hanky':'dory'})
-# task.close(task.SUCCESS)
+eywa.info("Browser closed")
+eywa.report("Everything went just fine",{'hanky':'dory'})
+# eywa.close(eywa.SUCCESS)
