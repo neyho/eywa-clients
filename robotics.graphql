@@ -116,15 +116,27 @@ type Mutation {
     "python -m examples.webdriver"])
 
 
-  """Example EYWA dataset GraphQL robot"""
+  """Example EYWA dataset GraphQL robot in
+  Python using eywa reacher library"""
   pythonEYWAGraphqlExample:STDResult
   @robot(
     euuid: "a0dfada7-36cd-491e-ae24-55d3be6b237e"
-    name: "EYWA Dataset Example in Python"
+    name: "EYWA Dataset Example with Reacher in python"
     task_message: "Assigned!")
   @execute(commands: [
     "cd py"
     "python -m examples.graphql"])
+
+
+  """Example EYWA dataset GraphQL robot in Python"""
+  pythonEYWAGraphqlExample:STDResult
+  @robot(
+    euuid: "f077cef4-84ae-417b-b1b2-1109c234118a"
+    name: "EYWA Dataset Example in raw Python"
+    task_message: "Assigned!")
+    @execute(commands: [
+    "cd py"
+    "python -m examples.raw_graphql"])
 
 
   """Example EYWA dataset GraphQL robot"""
