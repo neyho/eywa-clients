@@ -1,4 +1,5 @@
 import sys
+import json
 
 query = """
 {
@@ -14,7 +15,7 @@ query = """
 }"""
 
 
-print({
+print(str(json.dumps({
     'jsonrpc': "2.0",
     'id':0,
     'method': 'eywa.datasets.graphql',
@@ -24,7 +25,8 @@ print({
             'a': 10,
             'b':20
             }
-        }})
+        }})) +
+    "\n")
 
 
 print(sys.stdin.readline())
