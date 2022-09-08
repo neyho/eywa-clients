@@ -14,8 +14,7 @@ query = """
     }
 }"""
 
-
-print(str(json.dumps({
+sys.stdout.write(str(json.dumps({
     'jsonrpc': "2.0",
     'id':0,
     'method': 'eywa.datasets.graphql',
@@ -27,9 +26,14 @@ print(str(json.dumps({
             }
         }})) +
     "\n")
+sys.stdout.flush()
 
 
-print(sys.stdin.readline())
+response = sys.stdin.readline()
+
+sys.stdout.write('EYWA')
+sys.stdout.write(response)
+sys.stdout.flush()
 
 
 # {"jsonrpc":"2.0","id":0,"result":100} 
