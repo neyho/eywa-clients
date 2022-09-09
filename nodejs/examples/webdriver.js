@@ -1,4 +1,4 @@
-import eywa from '../src/eywa.js'
+import eywa from 'eywa-reacher-client'
 import puppeteer from 'puppeteer'
 
 

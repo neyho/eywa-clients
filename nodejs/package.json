@@ -1,6 +1,6 @@
 {
   "name": "eywa-reacher-client",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "\"EYWA reacher client for NodeJS\"",
   "main": "src/eywa.js",
   "scripts": {
@@ -12,7 +12,7 @@
     "\"client\"",
     "\"JSON-RPC\""
   ],
-  "author": "Robert Gersak",
+  "author": "Robert Gersak <r.gersak@neyho.com>",
   "license": "MIT",
   "dependencies": {
     "nanoid": "^4.0.0"

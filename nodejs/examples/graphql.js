@@ -1,7 +1,6 @@
 import eywa from '../src/eywa.js'
 
 
-
 let query = ` {
     searchUser {
         euuid
