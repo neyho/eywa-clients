@@ -12,4 +12,4 @@ export function trace(message:String, data:Any): void
 export function report(message:String, data:Any, image: Any): void
 export function update_task(status: String): void
 export function return_task(status: String): void
-export function graphql(query:Any, variables:Any): void
+export function graphql(query:Any, variables:Any): Promise

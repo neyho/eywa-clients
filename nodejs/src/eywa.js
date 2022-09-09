@@ -5,10 +5,11 @@ const rpc_callbacks = new Map()
 const handlers = new Map()
 
 
-const handleData = ({method, id, response, error} = data) => {
+const handleData = (data) => {
+  let {method, id, result, error} = data
   if (method !== undefined) {
     handleRequest(data)
-  } else if (response !== undefined && id !== undefined) {
+  } else if (result !== undefined && id !== undefined) {
     handleResponse(data)
   } else if (error !== undefined && id !== undefined) {
     handleResponse(data)
@@ -18,7 +19,8 @@ const handleData = ({method, id, response, error} = data) => {
 }
 
 
-const handleRequest = ({method} = data) => {
+const handleRequest = (data) => {
+  let {method} = data
   let handler = handlers.get(method)
   if (handler !== undefined) {
     handler(data)
@@ -28,10 +30,12 @@ const handleRequest = ({method} = data) => {
 }
 
 
-const handleResponse = ({id} = data) => {
-  callback = rpc_callbacks.get(id)
+const handleResponse = (data) => {
+  let {id} = data
+  let callback = rpc_callbacks.get(id)
   if (callback !== undefined) {
     rpc_callbacks.delete(id)
+    console.log('Calling callback with data: ' + data)
     callback(data)
   } else {
     console.error('RPC callback not registered for request with id = ' + id)
@@ -44,10 +48,12 @@ export const send_request = (data) => {
   data['jsonrpc'] = "2.0"
   data['id'] = id
   let promise = new Promise((resolve, reject) => {
-    rpc_callbacks.set(id, ({response, error}) => {
-      if (response !== undefined) {
-        resolve(response)
+    rpc_callbacks.set(id, ({result, error}) => {
+      if (result!== undefined) {
+        console.log('Returning result: ' + result)
+        resolve(result)
       } else {
+        console.log('Returning error: ' + error)
         reject(error)
       }
     })
