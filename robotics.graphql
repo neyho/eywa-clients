@@ -160,7 +160,6 @@ type Mutation {
     task_message: """Sites:{% for site in sites %}
         *  {{site}}{% endfor %}"""
   )
-  @form_input
   @execute(commands: [
     "cd nodejs"
     "node examples/webdriver.js"]
