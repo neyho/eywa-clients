@@ -134,7 +134,7 @@ export const report = (message, data=null, image=null) => {
   })
 }
 
-export const close = (status=SUCCESS) => {
+export const close_task = (status=SUCCESS) => {
   send_notification({
     'method': 'task.close',
     'params': {
@@ -186,7 +186,7 @@ export default {
   warn: warn,
   update_task: update_task,
   return_task: return_task,
-  close_pipe: close,
+  close_task: close_task,
   graphql: graphql
 }
 

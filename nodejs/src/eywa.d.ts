@@ -2,7 +2,7 @@ export function send_request(data:Any): Any
 export function send_notification(data:Any): Any
 export function register_handler(handler:Function): Any
 export function open_pipe(): void
-export function close_pipe(): void
+export function close_task(): void
 export function log(record:Any): void
 export function error(message:String, data:Any): void
 export function info(message:String, data:Any): void

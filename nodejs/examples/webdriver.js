@@ -16,5 +16,6 @@ import puppeteer from 'puppeteer'
   await page.pdf({ path: 'hn.pdf', format: 'a4' });
   eywa.info('Closing web page')
   await browser.close();
+  // eywa.close_pipe();
   process.exit(0)
 })()

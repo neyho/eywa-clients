@@ -1,6 +1,6 @@
 {
   "name": "eywa-reacher-client",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "description": "\"EYWA reacher client for NodeJS\"",
   "main": "src/eywa.js",
   "scripts": {
@@ -18,7 +18,7 @@
     "nanoid": "^4.0.0"
   },
   "devDependencies": {
-    "eywa-reacher-client": "0.0.4",
+    "eywa-reacher-client": "0.0.5",
     "puppeteer": "^17.1.3"
   }
 }
