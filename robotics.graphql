@@ -164,4 +164,19 @@ type Mutation {
     "cd nodejs"
     "node examples/webdriver.js"]
   )
+
+
+  
+  """Example EYWA dataset GraphQL robot in
+  Python using eywa reacher library"""
+  nodeJSGraphQLdimple:STDResult
+  @robot(
+    euuid: "ccaea1f9-091f-4c19-8512-fdaaa79fb1ff"
+    name: "NodeJS GraphQL example"
+    task_message: """Check my tenis"""
+  )
+  @execute(commands: [
+    "cd nodejs"
+    "node examples/graphql.js"]
+  )
 }
