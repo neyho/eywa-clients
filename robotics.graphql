@@ -156,7 +156,7 @@ type Mutation {
   nodeJSWebdriverPimple:STDResult
   @robot(
     euuid: "70040b24-824f-4e9d-8474-877875f8534d"
-    name: "Webdriver URL list input test"
+    name: "NodeJS Webdriver example"
     task_message: """Sites:{% for site in sites %}
         *  {{site}}{% endfor %}"""
   )
