@@ -169,23 +169,21 @@ export const graphql = (query, variables=null) => {
   })
 }
 
-const exports = {
+
+export default {
   send_request: send_request,
-    send_notification: send_notification,
-    register_handler: register_handler,
-    open_pipe: open_pipe,
-    log: log,
-    info: info,
-    warn: warn,
-    update_task: update_task,
-    return_task: return_task,
-    close_pipe: close,
-    graphql: graphql
+  send_notification: send_notification,
+  register_handler: register_handler,
+  open_pipe: open_pipe,
+  log: log,
+  info: info,
+  warn: warn,
+  update_task: update_task,
+  return_task: return_task,
+  close_pipe: close,
+  graphql: graphql
 }
 
-export default exports
-
-module.exports = exports
 
 // info('hello from nodejs')
 // close()
