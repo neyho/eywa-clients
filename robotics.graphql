@@ -39,6 +39,13 @@ input Arg2 {
 
 
 type Mutation {
+  "Update all packages"
+  onGitUpdate:STDResult
+  @execute(commands:[
+    "cd nodejs"
+    "npm install"
+  ])
+
 
 
   """Example webdriver robot that opens browser than
@@ -52,8 +59,8 @@ type Mutation {
   @clipboard_input
   @execute(commands: [
     "cd py"
-    "python -m examples.webdriver"])
-
+    "python -m examples.webdriver"]
+  )
 
 
   """Example webdriver robot that opens browser than
@@ -141,4 +148,21 @@ type Mutation {
   @execute(commands: [
     "cd bb"
     "bb -m reacher.rpc"])
+
+
+  """Example webdriver robot that opens browser than
+  navigates to list of 'sites' URL and afther that closes
+  browser."""
+  nodeJSWebdriverPimple:STDResult
+  @robot(
+    euuid: "70040b24-824f-4e9d-8474-877875f8534d"
+    name: "Webdriver URL list input test"
+    task_message: """Sites:{% for site in sites %}
+        *  {{site}}{% endfor %}"""
+  )
+  @form_input
+  @execute(commands: [
+    "cd nodejs"
+    "node examples/webdriver.js"]
+  )
 }
