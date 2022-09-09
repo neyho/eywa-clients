@@ -1,0 +1,23 @@
+{
+  "name": "eywa-reacher-client",
+  "version": "0.0.1",
+  "description": "\"EYWA reacher client for NodeJS\"",
+  "main": "src/eywa.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "type": "module",
+  "keywords": [
+    "\"EYWA\"",
+    "\"client\"",
+    "\"JSON-RPC\""
+  ],
+  "author": "Robert Gersak",
+  "license": "MIT",
+  "dependencies": {
+    "nanoid": "^4.0.0"
+  },
+  "devDependencies": {
+    "puppeteer": "^17.1.3"
+  }
+}
