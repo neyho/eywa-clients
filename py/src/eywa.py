@@ -4,7 +4,7 @@ __author__ = "Robert Gersak"
 __email__ = "r.gersak@gmail.com"
 __license__ = "MIT"
 __status__ = "Development"
-__version__ = "0.0.3"
+__version__ = "0.0.4"
 
 
 import time
@@ -504,6 +504,11 @@ def close(status=SUCCESS):
     else:
         exit_status=0
     sys.exit(exit_status)
+
+
+def get_task():
+    return EYWA.request("task.get", None)
+
 
 def update_task(status=PROCESSING):
     EYWA.notify("task.update",{"status":status})
