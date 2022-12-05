@@ -507,7 +507,7 @@ def close(status=SUCCESS):
 
 
 def get_task():
-    return EYWA.request("task.get", None)
+    return EYWA.request("task.get", {})
 
 
 def update_task(status=PROCESSING):
