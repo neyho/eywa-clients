@@ -145,6 +145,7 @@ type Mutation {
     list:[String]
     @label(value: "Type in list values")
   ):STDResult
+  @form_input
   @robot(
     euuid: "b90c5c05-1d8c-42eb-aeae-4e67696b78d0"
     name: "EYWA Task echo example in Python"
@@ -152,8 +153,6 @@ type Mutation {
     @execute(commands: [
     "cd py"
     "python -m examples.echo"])
-
-
 
 
   """Example EYWA dataset GraphQL robot"""
