@@ -158,6 +158,12 @@ export const update_task = (status=PROCESSING) => {
   })
 }
 
+
+export const get_task = () => {
+  return send_request({'method':'task.get'});
+}
+
+
 export const return_task = () => {
   send_notification({
     'method': 'task.return'
@@ -181,6 +187,7 @@ export default {
   send_notification: send_notification,
   register_handler: register_handler,
   open_pipe: open_pipe,
+  get_task: get_task,
   log: log,
   info: info,
   warn: warn,
