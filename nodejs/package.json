@@ -12,9 +12,10 @@
     "\"client\"",
     "\"JSON-RPC\""
   ],
-  "author": "Robert Gersak <r.gersak@neyho.com>",
+  "author": "Robert Gersak <robi@neyho.com>",
   "license": "MIT",
   "dependencies": {
+    "eywa-reacher-client": "^0.0.6",
     "nanoid": "^4.0.0"
   },
   "devDependencies": {
