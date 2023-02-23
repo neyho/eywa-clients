@@ -2,21 +2,34 @@ import eywa
 
 
 query = """
+mutation additionalSubsidy($customer_subsidy_input: CustomerSubsidyInput) {
+  syncCustomerSubsidy(customer_subsidy: $customer_subsidy_input) {
+    ban
+    last_name
+    first_name
+    ticket_id
+    category
+  }
+}
+
 {
-    searchUser {
-        euuid
-        name
-        type
-        modified_on
-        modified_by {
-            name
-        }
-    }
-}"""
+  searchCustomer {
+    euuid
+  }
+}
+"""
 
 
 eywa.info('hfoiqfioq')
-response = eywa.graphql({'query': query, 'variables': {'a': 10, 'b':20}})
+response = eywa.graphql({'query': query, 'variables': {
+    "customer-subsidy-input": {
+        "ban": "527624975",
+        "first-name": "f_name",
+        "last-name": "l_name",
+        "ticket-id": "17.02.2023 13:08/38975209909/",
+        "category": "217812"
+        }
+    }})
 
 print('Response:\n' + str(response))
 

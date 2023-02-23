@@ -153,7 +153,7 @@ class EYWA():
                    raise result
                 else:
                     return result
-            time.sleep(0.1)   
+            time.sleep(0.1)
 
     @classmethod
     def notify(cls, method, data = None):
