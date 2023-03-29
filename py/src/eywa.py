@@ -4,7 +4,7 @@ __author__ = "Robert Gersak"
 __email__ = "r.gersak@gmail.com"
 __license__ = "MIT"
 __status__ = "Development"
-__version__ = "0.0.3"
+__version__ = "0.0.5"
 
 
 import time
@@ -12,6 +12,7 @@ import datetime
 import json
 import sys
 import threading
+import traceback
 
 
 def check_id(id, allow_empty=False):
@@ -166,10 +167,18 @@ class EYWA():
         Handles an incoming *line* and dispatches the parsed object to the request, response, or
         error handlers.
         """
-        obj = json.loads(line)
+        obj = None
+        try:
+            obj = json.loads(line)
+        except Exception as e:
+            print('Line:\n' + line, file=sys.stderr)
+            traceback.print_exception(e)
+            pass
 
         # dispatch to the correct handler
-        if "method" in obj:
+        if obj is None:
+            pass
+        elif "method" in obj:
             # request
             self._handle_request(obj)
         elif "error" not in obj:
@@ -504,6 +513,11 @@ def close(status=SUCCESS):
     else:
         exit_status=0
     sys.exit(exit_status)
+
+
+def get_task():
+    return EYWA.request("task.get", {})
+
 
 def update_task(status=PROCESSING):
     EYWA.notify("task.update",{"status":status})
