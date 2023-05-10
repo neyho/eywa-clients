@@ -4,7 +4,7 @@ __author__ = "Robert Gersak"
 __email__ = "r.gersak@gmail.com"
 __license__ = "MIT"
 __status__ = "Development"
-__version__ = "0.0.5"
+__version__ = "0.0.6"
 
 
 import time
@@ -130,12 +130,14 @@ class EYWA():
             connection.stop()
 
     @classmethod
-    def request(cls, method, params):
+    def request(cls, method, params, timeout = None):
         # check if the call is a notification
         eywa = EYWA()
         # create a new id for requests expecting a response
         eywa._i += 1
         id = eywa._i
+
+        now = time.time();
 
         # store an empty result for the meantime
         eywa._results[id] = EMPTY_RESULT
@@ -154,7 +156,10 @@ class EYWA():
                    raise result
                 else:
                     return result
-            time.sleep(0.1)
+            elif timeout is not None  and time.time() - now > timeout:
+                raise ValueError('EYWA silent error. Timeout occured for:\n' + req)
+            else:
+                time.sleep(0.1)
 
     @classmethod
     def notify(cls, method, data = None):
@@ -527,7 +532,7 @@ def return_task():
     EYWA.notify("task.return")
     sys.exit(0)
 
-def graphql(query):
-    return EYWA.request("eywa.datasets.graphql", query)
+def graphql(query, timeout = None):
+    return EYWA.request("eywa.datasets.graphql", query, timeout)
 
 eywa = EYWA()
