@@ -205,7 +205,6 @@ type Mutation {
   )
   @execute(commands: [
     "cd nodejs"
-    ""
     "node examples/hanging.js"]
   )
 }
