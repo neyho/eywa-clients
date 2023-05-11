@@ -39,6 +39,11 @@ input Arg2 {
 
 
 type Mutation {
+  onGitUpdate:STDResult
+  @execute(commands: [
+    "cd nodejs"
+    "npm ci"
+  ]
 
   """Example webdriver robot that opens browser than
   navigates to http://www.index.html and afther that closes
@@ -200,6 +205,7 @@ type Mutation {
   )
   @execute(commands: [
     "cd nodejs"
+    ""
     "node examples/hanging.js"]
   )
 }
