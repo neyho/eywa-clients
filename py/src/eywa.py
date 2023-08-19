@@ -4,7 +4,7 @@ __author__ = "Robert Gersak"
 __email__ = "r.gersak@gmail.com"
 __license__ = "MIT"
 __status__ = "Development"
-__version__ = "0.0.6"
+__version__ = "0.0.7"
 
 
 import time
