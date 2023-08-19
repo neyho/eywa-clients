@@ -18,7 +18,7 @@ let execute = async() => {
     eywa.open_pipe()
     eywa.info('Sending GraphQL query to EYWA')
     let response =  await eywa.graphql(query)
-    console.log('heelloo')
+    console.log('Success!!!')
     console.log(response)
     process.exit(0)
 }

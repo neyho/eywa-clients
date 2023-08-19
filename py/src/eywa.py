@@ -108,6 +108,9 @@ def generate_error(id, code, data=None):
 
 EMPTY_RESULT = object()
 
+
+connection_thread=None
+
 class EYWA():
 
     def __new__(cls):
@@ -122,12 +125,9 @@ class EYWA():
         self._handlers= {}
         self._results = {}
 
-        self._connection= Line(self)
-
     def __del__(self):
-        connection = getattr(self, "_line", None)
-        if connection:
-            connection.stop()
+        if connection_thread:
+            connection_thread.stop()
 
     @classmethod
     def request(cls, method, params, timeout = None):
@@ -176,7 +176,7 @@ class EYWA():
         try:
             obj = json.loads(line)
         except Exception as e:
-            print('Line:\n' + line, file=sys.stderr)
+            # print('Line:\n' + line, file=sys.stderr)
             traceback.print_exception(e)
             pass
 
@@ -270,17 +270,18 @@ class Line(threading.Thread):
 
     def run(self):
         self._stop.clear()
-
+        # print('starting read loop')
         while not self._stop.is_set():
             line= None
             try:
+                # print('Reading sys.stdin.line')
                 line = sys.stdin.readline()
+                # print('Line length %d', len(line))
             except IOError:
                 # prevent residual race conditions occurring when stdin is closed externally
                 pass
-
             if line:
-                line = line.strip()
+                # line = line.strip()
                 self.tap._handle(line)
             else:
                 self._stop.wait(self.interval)
@@ -536,3 +537,4 @@ def graphql(query, timeout = None):
     return EYWA.request("eywa.datasets.graphql", query, timeout)
 
 eywa = EYWA()
+connection_thread=Line(eywa)
