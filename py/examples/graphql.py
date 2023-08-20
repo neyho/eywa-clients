@@ -1,33 +1,21 @@
 import eywa
+import datetime
 
 
 query = """
-mutation additionalSubsidy($customer_subsidy_input: CustomerSubsidyInput) {
-  syncCustomerSubsidy(customer_subsidy: $customer_subsidy_input) {
-    ban
-    last_name
-    first_name
-    ticket_id
-    category
-  }
-}
-
-{
-  searchCustomer {
+mutation($example:TaskInput!) {
+  syncTask(task:$example) {
     euuid
   }
 }
 """
 
 
-eywa.info('hfoiqfioq')
 response = eywa.graphql({'query': query, 'variables': {
-    "customer-subsidy-input": {
-        "ban": "527624975",
-        "first-name": "f_name",
-        "last-name": "l_name",
-        "ticket-id": "17.02.2023 13:08/38975209909/",
-        "category": "217812"
+    "example": {
+        "euuid":"5653056c-ef73-4acf-ab03-45cb83d102eb",
+        "message":"Testing Python reacher client",
+        "started": datetime.datetime(2000,2,3,4,5,6).isoformat()
         }
     }},2)
 
