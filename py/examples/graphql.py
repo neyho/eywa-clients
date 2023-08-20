@@ -15,7 +15,8 @@ response = eywa.graphql({'query': query, 'variables': {
     "example": {
         "euuid":"5653056c-ef73-4acf-ab03-45cb83d102eb",
         "message":"Testing Python reacher client",
-        "started": datetime.datetime(2000,2,3,4,5,6).isoformat()
+        #"started": datetime.datetime(2000,2,3,4,5,6).isoformat()
+        "started": datetime.datetime.utcnow().isoformat()
         }
     }},2)
 
