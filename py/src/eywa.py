@@ -4,7 +4,7 @@ __author__ = "Robert Gersak"
 __email__ = "r.gersak@gmail.com"
 __license__ = "MIT"
 __status__ = "Development"
-__version__ = "0.0.7"
+__version__ = "0.0.8"
 
 
 import time
@@ -488,6 +488,8 @@ def log(event="INFO",
     if (time == None):
         time= datetime.datetime.utcnow().isoformat()
 
+    if event not in ["INFO", "ERROR", "WARN", "DEBUG", "TRACE"]:
+        raise ValueError(f"The event '{event}' is not one of allowed event types [INFO, ERROR, WARN, DEBUG, TRACE].")
     EYWA.notify("task.log", {"time": time, "event":event,"message":message,
         "data":data,"coordinates":coordinates,"duration":duration})
 
@@ -508,9 +510,9 @@ def trace(message,data=None):
 
 def report(message,data=None,image=None):
     EYWA.notify("task.report",
-            {"message":message,
-                "data": data,
-                "image":image})
+                {"message":message,
+                 "data": data,
+                 "image":image})
 
 def close(status=SUCCESS):
     EYWA.notify("task.close", {"status":status})
@@ -526,6 +528,8 @@ def get_task():
 
 
 def update_task(status=PROCESSING):
+    if status not in ["SUCCESS", "ERROR", "PROCESSING", "EXCEPTION"]:
+        raise ValueError(f"The status {status} is not one of allowed status types [SUCCESS, ERROR, PROCESSING, EXCEPTION]")
     EYWA.notify("task.update",{"status":status})
 
 

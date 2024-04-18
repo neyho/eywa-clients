@@ -6,6 +6,7 @@ from nanoid import generate as nanoid
 rpc_callbacks = {}
 handlers = {}
 
+
 def handle_data(data):
     method = data.get("method")
     id_ = data.get("id")
@@ -40,9 +41,8 @@ def handle_response(data):
         print(f'RPC callback not registered for request with id = {id_}')
 
 
-
 async def send_request(data):
-    # id_ = nanoid()
+    id_ = nanoid()
     id_ = 10
     data["jsonrpc"] = "2.0"
     data["id"] = id_
@@ -64,10 +64,10 @@ def register_handler(method, func):
 
 
 class LargeBufferStreamReader(asyncio.StreamReader):
-    def __init__(self, limit=1024*1024*10, *args, **kwargs):  # Default limit set to 1 MB here.
+    # Default limit set to 1 MB here.
+    def __init__(self, limit=1024*1024*10, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._limit = limit
-
 
 
 async def read_stdin():
@@ -77,7 +77,7 @@ async def read_stdin():
 
     while True:
         try:
-            raw_json = await asyncio.wait_for(reader.readline(),timeout=2)
+            raw_json = await asyncio.wait_for(reader.readline(), timeout=2)
             json_data = json.loads(raw_json.decode().strip())
             handle_data(json_data)
             await asyncio.sleep(0.5)
@@ -104,20 +104,26 @@ def log(event="INFO", message="", data=None, duration=None, coordinates=None, ti
         }
     })
 
+
 def info(message, data=None):
     log(event="INFO", message=message, data=data)
+
 
 def error(message, data=None):
     log(event="ERROR", message=message, data=data)
 
+
 def warn(message, data=None):
     log(event="WARN", message=message, data=data)
+
 
 def debug(message, data=None):
     log(event="DEBUG", message=message, data=data)
 
+
 def trace(message, data=None):
     log(event="TRACE", message=message, data=data)
+
 
 def report(message, data=None, image=None):
     send_notification({
@@ -128,6 +134,7 @@ def report(message, data=None, image=None):
             'image': image
         }
     })
+
 
 def close_task(status="SUCCESS"):
     send_notification({
@@ -151,6 +158,7 @@ def update_task(status="PROCESSING"):
         }
     })
 
+
 async def get_task():
     return await send_request({'method': 'task.get'})
 
@@ -160,6 +168,7 @@ def return_task():
         'method': 'task.return'
     })
     sys.exit(0)
+
 
 async def graphql(query, variables=None):
     return await send_request({
@@ -171,11 +180,11 @@ async def graphql(query, variables=None):
     })
 
 
-__stdin__task__=None
+__stdin__task__ = None
 
 
 def connect():
-    __stdin__task__=asyncio.create_task(read_stdin())
+    __stdin__task__ = asyncio.create_task(read_stdin())
 
 
 async def exit():
@@ -183,7 +192,6 @@ async def exit():
     if __stdin__task__ is not None:
         await __stdin__task__.cancel()
     sys.exit(0)
-
 
 
 async def main():
@@ -196,7 +204,7 @@ async def main():
       started
     }
     """)
-    print(f'Exiting!' )
+    print(f'Exiting!')
     await exit()
 
 asyncio.run(main())
