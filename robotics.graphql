@@ -48,7 +48,7 @@ type Mutation {
   """Example webdriver robot that opens browser than
   navigates to http://www.index.html and afther that closes
   browser."""
-  pythonWebdriverExample7:STDResult
+  pythonWebdriverExample8:STDResult
   @robot(
     euuid: "62fa3d62-3511-4769-830e-03ba43e3064b"
     name: "Webdriver Google Test"
