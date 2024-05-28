@@ -43,7 +43,8 @@ type Mutation {
   @execute(commands: [
     "cd nodejs"
     "npm ci"
-  ])
+  ]
+  windows: )
 
   """Example webdriver robot that opens browser than
   navigates to http://www.index.html and afther that closes

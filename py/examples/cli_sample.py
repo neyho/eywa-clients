@@ -1,4 +1,6 @@
 from faker import Faker
+import eywa
+
 
 # Create a Faker instance and set the locale to 'en_US'
 fake = Faker('en_US')
@@ -22,4 +24,3 @@ for _ in range(5):
     print("Random Address:", fake.address())
     print("Random Birthdate:", fake.date_of_birth())
     print("-" * 20)
-
