@@ -51,7 +51,7 @@ type Mutation {
   pythonWebdriverExample8:STDResult
   @robot(
     euuid: "62fa3d62-3511-4769-830e-03ba43e3064b"
-    name: "Webdriver Google NEST"
+    name: "Webdriver Google BREST"
   )
   @clipboard_input
   @execute(commands: [
