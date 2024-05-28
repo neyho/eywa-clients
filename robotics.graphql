@@ -188,6 +188,7 @@ type Mutation {
     name: "NodeJS GraphQL example"
     task_message: """Check my tenis"""
   )
+  @execute(commands: [
     "cd nodejs"
     "node examples/graphql.js"]
   )
