@@ -67,4 +67,4 @@ let execute = async() => {
 //     process.exit(0)
 // }
 
-// execute()
+execute()
