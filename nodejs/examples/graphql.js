@@ -35,7 +35,7 @@ let execute = async() => {
     eywa.info('Sending GraphQL query to EYWA')
     let response =  await eywa.graphql(query)
     console.log(JSON.stringify(response, null, 2))
-    process.exit(0)
+    process.exit(1)
 }
 
 
