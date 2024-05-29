@@ -12,13 +12,13 @@ import eywa from 'eywa-reacher-client'
 //         }
 //     }
 //   }`
-
+//
 
 let query = `
 {
-  searchTask (_limit:5, id:{_neq:null}) {
-    id
-    description
+  searchTask (_limit:5) {
+    euuid
+    message
     assignee {
       name
     }
@@ -30,13 +30,13 @@ let query = `
 
 
 
-// let execute = async() => {
-//     eywa.open_pipe()
-//     eywa.info('Sending GraphQL query to EYWA')
-//     let response =  await eywa.graphql(query)
-//     console.log(JSON.stringify(response, null, 2))
-//     process.exit(0)
-// }
+let execute = async() => {
+    eywa.open_pipe()
+    eywa.info('Sending GraphQL query to EYWA')
+    let response =  await eywa.graphql(query)
+    console.log(JSON.stringify(response, null, 2))
+    process.exit(0)
+}
 
 
 // let mutation = `
@@ -67,4 +67,4 @@ let query = `
 //     process.exit(0)
 // }
 
-// execute()
+execute()
