@@ -26,15 +26,15 @@ let query = `
 }
 `
 
-
+console.log("hello")
 
 
 
 let execute = async() => {
-    // eywa.open_pipe()
-    // eywa.info('Sending GraphQL query to EYWA')
-    // let response =  await eywa.graphql(query)
-    // console.log(JSON.stringify(response, null, 2))
+    eywa.open_pipe()
+    eywa.info('Sending GraphQL query to EYWA')
+    let response =  await eywa.graphql(query)
+    console.log(JSON.stringify(response, null, 2))
     process.exit(0)
 }
 
@@ -67,4 +67,4 @@ let execute = async() => {
 //     process.exit(0)
 // }
 
-execute()
+// execute()
