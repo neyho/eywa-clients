@@ -182,7 +182,7 @@ type Mutation {
 
   """Example EYWA dataset GraphQL robot in
   Python using eywa reacher library"""
-  nodeJSGraphQLdimple109:STDResult
+  nodeJSGraphQLdimple110:STDResult
   @robot(
     euuid: "ccaea1f9-091f-4c19-8512-fdaaa79fb1ff"
     name: "NodeJS GraphQL example"
