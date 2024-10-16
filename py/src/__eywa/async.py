@@ -3,6 +3,7 @@ import sys
 import json
 from nanoid import generate as nanoid
 
+
 rpc_callbacks = {}
 handlers = {}
 
@@ -43,12 +44,13 @@ def handle_response(data):
 
 async def send_request(data):
     id_ = nanoid()
-    id_ = 10
+    # id_ = 10
     data["jsonrpc"] = "2.0"
     data["id"] = id_
     future = asyncio.Future()
     rpc_callbacks[id_] = future
     sys.stdout.write(json.dumps(data) + "\n")
+    sys.stdout.flush()
     result = await future
     del rpc_callbacks[id_]
     return result
@@ -57,6 +59,7 @@ async def send_request(data):
 def send_notification(data):
     data["jsonrpc"] = "2.0"
     sys.stdout.write(json.dumps(data) + "\n")
+    sys.stdout.flush()
 
 
 def register_handler(method, func):
@@ -183,29 +186,56 @@ async def graphql(query, variables=None):
 __stdin__task__ = None
 
 
-def connect():
+def open_pipe():
+    global __stdin__task__
     __stdin__task__ = asyncio.create_task(read_stdin())
 
 
-async def exit():
-
-    if __stdin__task__ is not None:
-        await __stdin__task__.cancel()
+def exit():
+    if __stdin__task__ is not None:        
+        __stdin__task__.cancel()
     sys.exit(0)
 
 
-async def main():
-    connect()
-    await graphql("""
+async def search_tasks():
+    return await graphql("""{
     searchTask (_limit:2000) {
       euuid
       status
       finished
       started
     }
-    """)
+    }""")
+
+
+async def search_users():
+    return await graphql("""{
+    searchUser (_limit:2000) {
+      euuid
+      name
+      type      
+    }
+    }""")
+
+
+async def main():        
+    open_pipe()
+
+    result = await asyncio.gather(search_tasks(), search_users())
+    search_tasks_result, search_users_result = result
+    print(search_tasks_result)
+    print()
+    print(search_users_result)
+
+    search_tasks_result = await search_tasks()
+    search_users_result = await search_users()
+    print()
+    print(search_tasks_result)
+    print()
+    print(search_users_result)
+
     print(f'Exiting!')
-    await exit()
+    exit()
 
 asyncio.run(main())
 
