@@ -8,4 +8,4 @@ __license__ = "MIT"
 __status__ = "Development"
 __version__ = "0.2.0"
 
-from .eywa_async import *
+from .eywa import *

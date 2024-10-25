@@ -1,4 +1,4 @@
-from eywa import eywa_async as eywa
+import eywa
 import asyncio
 
 
@@ -39,7 +39,7 @@ async def main():
     print(search_users_result)
 
     print(f'Exiting!')
-    exit()
+    eywa.exit()
 
 
 asyncio.run(main())

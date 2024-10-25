@@ -209,9 +209,9 @@ def close_task(status="SUCCESS"):
     })
 
     if status == "SUCCESS":
-        sys.exit(0)
+        exit(0)
     else:
-        sys.exit(1)
+        exit(1)
 
 
 def update_task(status="PROCESSING"):
@@ -231,7 +231,7 @@ def return_task():
     send_notification({
         'method': 'task.return'
     })
-    sys.exit(0)
+    exit(0)
 
 
 async def graphql(query, variables=None):
@@ -252,8 +252,8 @@ def open_pipe():
     __stdin__task__ = asyncio.create_task(read_stdin())
 
 
-def exit():
+def exit(status=0):
     if __stdin__task__ is not None:        
         __stdin__task__.cancel()
     os.set_blocking(sys.stdin.fileno(), True)
-    sys.exit(0)
+    sys.exit(status)
