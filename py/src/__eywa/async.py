@@ -1,6 +1,7 @@
 import asyncio
 import sys
 import json
+import os
 from nanoid import generate as nanoid
 
 
@@ -194,6 +195,7 @@ def open_pipe():
 def exit():
     if __stdin__task__ is not None:        
         __stdin__task__.cancel()
+    os.set_blocking(sys.stdin.fileno(), True)
     sys.exit(0)
 
 
