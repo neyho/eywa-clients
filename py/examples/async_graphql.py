@@ -1,4 +1,4 @@
-import eywa_async as eywa
+from eywa import eywa_async as eywa
 import asyncio
 
 

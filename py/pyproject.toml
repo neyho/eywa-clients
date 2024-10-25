@@ -12,14 +12,10 @@ classifiers = ["License :: OSI Approved :: MIT License"]
 dynamic = ["version", "description"]
 
 
-[project.urls]
-Home = "https://www.neyho.com"
-
-
 [tool.flit.module]
 name = "eywa"
 source-directory = "src"
 
 
 [tool.flit.sdist]
-exclude = ["examples"]
+exclude = ["examples", ".DS_Store", "eywa.edn", "robotics.graphql", "dist"]
