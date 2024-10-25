@@ -4,7 +4,7 @@ __author__ = "Robert Gersak"
 __email__ = "r.gersak@gmail.com"
 __license__ = "MIT"
 __status__ = "Development"
-__version__ = "0.0.9"
+__version__ = "0.1.0"
 
 
 import time
@@ -19,16 +19,19 @@ def check_id(id, allow_empty=False):
     if (id is not None or not allow_empty) and not isinstance(id, (int, str)):
         raise TypeError("id must be an integer or string, got {} ({})".format(id, type(id)))
 
+
 def check_method(method):
     if not isinstance(method, str):
         raise TypeError("method must be a string, got {} ({})".format(method, type(method)))
 
+
 def check_code(code):
-        if not isinstance(code, int):
-            raise TypeError("code must be an integer, got {} ({})".format(id, type(id)))
+    if not isinstance(code, int):
+        raise TypeError("code must be an integer, got {} ({})".format(id, type(id)))
 
         if not get_error(code):
             raise ValueError("unknown code, got {} ({})".format(code, type(code)))
+
 
 def generate_request(method, id=None, params=None):
         try:
@@ -73,6 +76,7 @@ def generate_response(id, result):
 
         return res
 
+
 def generate_error(id, code, data=None):
         try:
             check_id(id)
@@ -110,6 +114,7 @@ EMPTY_RESULT = object()
 
 
 connection_thread=None
+
 
 class EYWA():
 
