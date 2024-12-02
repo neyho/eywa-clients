@@ -1,35 +1,34 @@
 (ns reacher.rpc
   (:require
-    [cheshire.core :as json]
-    [clojure.core.async :as async]))
+    [eywa.client :as eywa]
+    [clojure.core.async :as async]
+    [clojure.pprint :refer [pprint]]
+    [toddler.graphql :as graphql]))
 
 
-
-
-(defn show-users
-  []
-  (println
-    (json/generate-string
-      {:id "109201"
-       :jsonrpc "2.0"
-       :method "eywa.datasets.graphql"
-       :params {:query "{
-                       searchUser {
-                       name
-                       euuid
-                       type
-                       }
-                       }"
-                :variables {:a 10 :b 20}}})))
-
-
-(defn read-output
-  []
-  (read-line))
-
-
-
-(defn -main [& _]
-  (show-users)
-  (let [in (read-output)]
-    (spit "eywa_response.json" in)))
+(comment
+  (eywa/start)
+  (async/go
+    (pprint
+      (time
+        (async/<!
+          (eywa/graphql
+            {:query (graphql/queries
+                      {:query :searchUser
+                       :selections {:euuid nil
+                                    :name nil
+                                    :roles [{:selections
+                                             {:euuid nil
+                                              :name nil}}]}})})))))
+  (async/go
+    (def x
+      (async/<!
+        (eywa/graphql
+          (graphql/mutations
+            [{:mutation :syncUserList
+              :alias :new_users
+              :types {:user :UserInput}
+              :selections {:euuid nil}
+              :variables {:user [{:name "bozo"}
+                                 {:name "hohn"}
+                                 {:name "triss"}]}}]))))))
