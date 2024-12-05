@@ -23,22 +23,37 @@ async def search_users():
     }""")
 
 
+async def add_user(username, password):
+    return await eywa.graphql(
+        """
+    mutation($user:UserInput) {
+        syncUser(user:$user) {
+            euuid
+            name
+            password
+        }
+    }
+    """,
+    {"user": {"name": username, "password": password}})
+
+
 async def main():
     eywa.open_pipe()
-    result = await asyncio.gather(search_tasks(), search_users())
-    search_tasks_result, search_users_result = result
-    print(search_tasks_result)
-    print()
-    print(search_users_result)
+    await add_user("marijan", "komunista")
+    # result = await asyncio.gather(search_tasks(), search_users())
+    # search_tasks_result, search_users_result = result
+    # print(search_tasks_result)
+    # print()
+    # print(search_users_result)
 
-    search_tasks_result = await search_tasks()
-    search_users_result = await search_users()
-    print()
-    print(search_tasks_result)
-    print()
-    print(search_users_result)
+    # search_tasks_result = await search_tasks()
+    # search_users_result = await search_users()
+    # print()
+    # print(search_tasks_result)
+    # print()
+    # print(search_users_result)
 
-    print(f'Exiting!')
+    # print(f'Exiting!')
     eywa.exit()
 
 

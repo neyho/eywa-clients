@@ -5,7 +5,7 @@
     #?(:cljs goog.string.format)))
 
 
-(def ^:dynamic *variable-bindings*)
+(def ^:dynamic *variable-bindings* nil)
 (def ^:dynamic *with-indent* true)
 (def ^:dynamic *indent* "  ")
 (def ^:dynamic *level* 0)
