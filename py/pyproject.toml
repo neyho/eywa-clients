@@ -7,9 +7,13 @@ build-backend = "flit_core.buildapi"
 name = "eywa-client"
 authors = [{name = "Robert Gersak", email = "robi@neyho.com"}]
 readme = "README.md"
-license = {file = "LICENSE"}
+license = {text = "MIT"}
 classifiers = ["License :: OSI Approved :: MIT License"]
-dynamic = ["version", "description"]
+version = "0.2.1"
+description = "A powerful module for managing async workflows and data processing."
+dependencies = [
+  "nanoid>=2.0.0"
+]
 
 
 [tool.flit.module]

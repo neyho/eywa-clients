@@ -7,7 +7,6 @@ eywa.warn("Uuuu you should be scared")
 eywa.update_task()
 # task.close(task.ERROR)
 
-print('Evo nekog texta')
 eywa.update_task(status=eywa.PROCESSING)
 eywa.info("Opening Chrome browser")
 browser = webdriver.Chrome()
