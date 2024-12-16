@@ -9,7 +9,7 @@ authors = [{name = "Robert Gersak", email = "robi@neyho.com"}]
 readme = "README.md"
 license = {text = "MIT"}
 classifiers = ["License :: OSI Approved :: MIT License"]
-version = "0.2.1"
+version = "0.2.4"
 description = "A powerful module for managing async workflows and data processing."
 dependencies = [
   "nanoid>=2.0.0"

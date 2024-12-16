@@ -9,6 +9,7 @@ import asyncio
 import sys
 import json
 import os
+from datetime import datetime, date
 from nanoid import generate as nanoid
 
 
@@ -64,6 +65,12 @@ def handle_error(id_, error):
         print(f'RPC callback not registered for request with id = {id_}')
 
 
+def custom_serializer(obj):
+    if isinstance(obj, (datetime, date)):
+        return obj.isoformat()
+    return obj
+
+
 async def send_request(data):
     id_ = nanoid()
     # id_ = 10
@@ -71,18 +78,20 @@ async def send_request(data):
     data["id"] = id_
     future = asyncio.Future()
     rpc_callbacks[id_] = future
-    sys.stdout.write(json.dumps(data) + "\n")
+    sys.stdout.write(json.dumps(data, default=custom_serializer) + "\n")
+    # sys.stdout.write(json.dumps(data) + "\n")
     sys.stdout.flush()
     result = await future
     del rpc_callbacks[id_]
     if isinstance(result, BaseException):
         raise result
-    else: return result
+    else:
+        return result
 
 
 def send_notification(data):
     data["jsonrpc"] = "2.0"
-    sys.stdout.write(json.dumps(data) + "\n")
+    sys.stdout.write(json.dumps(data, default=custom_serializer) + "\n")
     sys.stdout.flush()
 
 
@@ -135,7 +144,7 @@ class Sheet ():
         self.columns = columns
 
     def toJSON(self):
-        return json.dumps(self, default=lambda o:o.__dict__)
+        return json.dumps(self, default=lambda o: o.__dict__)
 
 
 class Table ():
@@ -150,12 +159,12 @@ class Table ():
         self.sheets.pop(idx)
 
     def toJSON(self):
-        return json.dumps(self, default=lambda o:o.__dict__)
+        return json.dumps(self, default=lambda o: o.__dict__)
 
 
 # TODO finish task reporting
 class TaskReport():
-    def __init__(self,message, data=None, image=None):
+    def __init__(self, message, data=None, image=None):
         self.message = message
         self.data = data
         self.image = image
@@ -275,7 +284,12 @@ def open_pipe():
 
 
 def exit(status=0):
-    if __stdin__task__ is not None:        
+    if __stdin__task__ is not None:
         __stdin__task__.cancel()
-    os.set_blocking(sys.stdin.fileno(), True)
+    try:
+        os.set_blocking(sys.stdin.fileno(), True)
+    except AttributeError:
+        print("os.set_blocking is not available on this platform.")
+    except OSError as e:
+        print(f"os.set_blocking failed: {e}")
     sys.exit(status)

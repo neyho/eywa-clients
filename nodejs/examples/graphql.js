@@ -30,12 +30,12 @@ console.log("hello")
 
 
 
-let execute = async() => {
-    eywa.open_pipe()
-    eywa.info('Sending GraphQL query to EYWA')
-    let response =  await eywa.graphql(query)
-    console.log(JSON.stringify(response, null, 2))
-    process.exit(1)
+let execute = async () => {
+  eywa.open_pipe()
+  eywa.info('Sending GraphQL query to EYWA')
+  let response = await eywa.graphql(query)
+  console.log(JSON.stringify(response, null, 2))
+  process.exit(1)
 }
 
 
@@ -45,7 +45,7 @@ let execute = async() => {
 //   euuid
 //   }
 // }`
- 
+
 
 // let execute = async() => {
 //     eywa.open_pipe()

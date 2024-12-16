@@ -1,4 +1,4 @@
-import {nanoid} from 'nanoid'
+import { nanoid } from 'nanoid'
 import process from 'node:process'
 
 const rpc_callbacks = new Map()
@@ -6,7 +6,7 @@ const handlers = new Map()
 
 
 const handleData = (data) => {
-  let {method, id, result, error} = data
+  let { method, id, result, error } = data
   if (method !== undefined) {
     handleRequest(data)
   } else if (result !== undefined && id !== undefined) {
@@ -20,7 +20,7 @@ const handleData = (data) => {
 
 
 const handleRequest = (data) => {
-  let {method} = data
+  let { method } = data
   let handler = handlers.get(method)
   if (handler !== undefined) {
     handler(data)
@@ -31,11 +31,11 @@ const handleRequest = (data) => {
 
 
 const handleResponse = (data) => {
-  let {id} = data
+  let { id } = data
   let callback = rpc_callbacks.get(id)
   if (callback !== undefined) {
     rpc_callbacks.delete(id)
-    console.log('Calling callback with data: ' + data)
+    //console.log('Calling callback with data: ' + data)
     callback(data)
   } else {
     console.error('RPC callback not registered for request with id = ' + id)
@@ -43,24 +43,47 @@ const handleResponse = (data) => {
 }
 
 
+let writing = false;
+const queue = [];
+
+
+const write_stdout = async () => {
+  if (writing) return;
+  writing = true;
+
+  while (queue.length > 0) {
+    const data = queue.shift();
+    process.stdout.write(JSON.stringify(data) + "\n");
+    await new Promise((resolve) => setImmediate(resolve));
+  }
+
+  writing = false;
+};
+
+
 export const send_request = (data) => {
-  let id = nanoid()
-  data['jsonrpc'] = "2.0"
-  data['id'] = id
-  let promise = new Promise((resolve, reject) => {
-    rpc_callbacks.set(id, ({result, error}) => {
-      if (result!== undefined) {
-        console.log('Returning result: ' + result)
-        resolve(result)
+  let id = nanoid();
+  data['jsonrpc'] = "2.0";
+  data['id'] = id;
+
+  const promise = new Promise((resolve, reject) => {
+    rpc_callbacks.set(id, ({ result, error }) => {
+      if (result !== undefined) {
+        resolve(result);
       } else {
-        console.log('Returning error: ' + error)
-        reject(error)
+        reject(error);
       }
-    })
-  })
-  process.stdout.write(JSON.stringify(data) + "\n")
-  return promise
-}
+    });
+  });
+
+  // Push the data to the queue and trigger the writer
+  queue.push(data);
+  write_stdout();
+
+  return promise;
+};
+
+
 
 
 export const send_notification = (data) => {
@@ -70,75 +93,102 @@ export const send_notification = (data) => {
 }
 
 
-export const register_handler = (method,f) => {
+export const register_handler = (method, f) => {
   handlers.set(method) = f
 }
 
 
 let open_pipe = () => {
-  process.stdin.on('data', (data) => {
-    let raw_json = data.toString()
-    let json = JSON.parse(raw_json)
-    handleData(json)
-  })
-}
+  let buffer = '';
+
+  // TODO - This is quick and dirty way to read large
+  // JSON responses
+  process.stdin.on('data', (chunk) => {
+    buffer += chunk.toString();
+
+    try {
+      const json = JSON.parse(buffer);
+      handleData(json);
+      buffer = '';
+    } catch (error) {
+      if (error.name !== 'SyntaxError') {
+        console.error("Couldn't parse remote response", error);
+        buffer = '';
+      }
+    }
+  });
+
+  process.stdin.on('end', () => {
+    // Handle the end of the input stream
+    if (buffer) {
+      try {
+        const json = JSON.parse(buffer);
+        handleData(json);
+      } catch (error) {
+        console.error("Couldn't parse remote response at end of stream", error);
+      }
+    }
+  });
+};
+
 
 export const SUCCESS = "SUCCESS"
 export const ERROR = "ERROR"
 export const PROCESSING = "PROCESSING"
 export const EXCEPTION = "EXCEPTION"
 
-export const log = ({event = "INFO", message, data, duration, coordinates, time=new Date()}) => {
+export const log = ({ event = "INFO", message, data, duration, coordinates, time = new Date() }) => {
   send_notification(
-    {'method': 'task.log',
+    {
+      'method': 'task.log',
       'params': {
         'time': time,
         'event': event,
         'message': message,
         'data': data,
-        'coordinates':coordinates,
-        'duration':duration
+        'coordinates': coordinates,
+        'duration': duration
       }
     })
 }
 
 
-export const info = (message, data=null) => {
-  log({'event': 'INFO','message': message, 'data':data})
+export const info = (message, data = null) => {
+  log({ 'event': 'INFO', 'message': message, 'data': data })
 }
 
-export const error = (message, data=null) => {
-  log({'event': ERROR,'message': message, 'data':data})
+export const error = (message, data = null) => {
+  log({ 'event': ERROR, 'message': message, 'data': data })
 }
 
-export const warn = (message, data=null) => {
-  log({'event': 'WARN','message': message, 'data':data})
+export const warn = (message, data = null) => {
+  log({ 'event': 'WARN', 'message': message, 'data': data })
 }
 
-export const debug = (message, data=null) => {
-  log({'event': 'DEBUG','message': message, 'data':data})
+export const debug = (message, data = null) => {
+  log({ 'event': 'DEBUG', 'message': message, 'data': data })
 }
 
-export const trace = (message, data=null) => {
-  log({'event': 'TRACE','message': message, 'data':data})
+export const trace = (message, data = null) => {
+  log({ 'event': 'TRACE', 'message': message, 'data': data })
 }
 
-export const report = (message, data=null, image=null) => {
+export const report = (message, data = null, image = null) => {
   send_notification({
     'method': 'task.report',
     'params': {
-      'message':message,
-      'data':data,
-      'image':image
+      'message': message,
+      'data': data,
+      'image': image
     }
   })
 }
 
-export const close_task = (status=SUCCESS) => {
+export const close_task = (status = SUCCESS) => {
   send_notification({
     'method': 'task.close',
     'params': {
-      'status':status
+      'status': status
     }
   })
 
@@ -149,18 +199,18 @@ export const close_task = (status=SUCCESS) => {
   }
 }
 
-export const update_task = (status=PROCESSING) => {
+export const update_task = (status = PROCESSING) => {
   send_notification({
     'method': 'task.update',
     'params': {
-      'status':status
+      'status': status
     }
   })
 }
 
 
 export const get_task = () => {
-  return send_request({'method':'task.get'});
+  return send_request({ 'method': 'task.get' });
 }
 
 
@@ -171,12 +221,12 @@ export const return_task = () => {
   process.exit(0)
 }
 
-export const graphql = (query, variables=null) => {
+export const graphql = (query, variables = null) => {
   return send_request({
-    'method':'eywa.datasets.graphql',
+    'method': 'eywa.datasets.graphql',
     'params': {
-      'query':query,
-      'variables':variables
+      'query': query,
+      'variables': variables
     }
   })
 }

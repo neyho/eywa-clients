@@ -1,21 +1,18 @@
 (ns eywa.client
   (:require
-    [clojure.pprint :refer [pprint]]
-    [clojure.core.async :as async]
-    [clojure.java.io :as io]
-    [eywa.client.json :refer [->json <-json]]))
+   [clojure.pprint :refer [pprint]]
+   [clojure.core.async :as async]
+   [clojure.java.io :as io]
+   [eywa.client.json :refer [->json <-json]]))
 
 (def pending-rpcs (atom {}))
 (def handlers (atom {}))
 
-
 (defn ->out [text]
   (.println System/out text))
 
-
 (comment
   (pprint @pending-rpcs))
-
 
 ;; Function to handle responses
 (defn handle-response [data]
@@ -35,7 +32,6 @@
       (handler data)
       (println (str "Method " method " doesn't have registered handler")))))
 
-
 ;; Function to handle incoming JSON-RPC data
 (defn handle-data [data]
   (let [{:keys [method id result error]} data]
@@ -44,7 +40,6 @@
       (and result id) (handle-response data)
       (and error id) (handle-response data)
       :else (println "Received invalid JSON-RPC:" data))))
-
 
 ;; Function to send a request
 (defn send-request
@@ -80,7 +75,7 @@
                              (println "Couldn't parse: " (pr-str line))))]
           (try
             (handle-data data)
-            (catch Throwable ex 
+            (catch Throwable ex
               (.println System/err
                         (str "[READ Thread] Couldn't handle incomming JSON-RPC: '" (ex-message ex) " '\n"
                              (with-out-str (pprint data)))))))
@@ -89,19 +84,17 @@
 ;; Log utility functions
 (defn log [event message & {:keys [data duration coordinates time]}]
   (send-notification {:method "task.log" :params {:time (or time (str (java.time.LocalDateTime/now)))
-                               :event event
-                               :message message
-                               :data data
-                               :coordinates coordinates
-                               :duration duration}}))
-
+                                                  :event event
+                                                  :message message
+                                                  :data data
+                                                  :coordinates coordinates
+                                                  :duration duration}}))
 
 (defn info [message & [data]] (log "INFO" message :data data))
 (defn error [message & [data]] (log "ERROR" message :data data))
 (defn warn [message & [data]] (log "WARN" message :data data))
 (defn debug [message & [data]] (log "DEBUG" message :data data))
 (defn trace [message & [data]] (log "TRACE" message :data data))
-
 
 ;; Task management
 (defn close-task [status]
@@ -111,7 +104,6 @@
     (System/exit 0)
     (System/exit 1)))
 
-
 (defn update-task [status]
   (send-notification {:method "task.update"
                       :params {:status status}}))
@@ -120,21 +112,19 @@
   (send-notification {:method "task.return"})
   (System/exit 0))
 
-
 (defn graphql
   ([{:keys [query variables]}]
    (async/go
      (let [{:keys [error result]}
            (async/<!
-             (send-request
-               {:method "eywa.datasets.graphql"
-                :params {:query query
-                         :variables variables}}))]
+            (send-request
+             {:method "eywa.datasets.graphql"
+              :params {:query query
+                       :variables variables}}))]
        (if-not error result
-         (ex-info
-           "GraphQL error"
-           error))))))
-
+               (ex-info
+                "GraphQL error"
+                error))))))
 
 ;; Main loop
 (defn start []
