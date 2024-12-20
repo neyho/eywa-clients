@@ -11,6 +11,9 @@
 (defn ->out [text]
   (.println System/out text))
 
+(defn ->err [text]
+  (.println System/err text))
+
 (comment
   (pprint @pending-rpcs))
 
@@ -22,7 +25,7 @@
       (do
         (async/put! callback data)
         (swap! pending-rpcs dissoc id))
-      (println (str "RPC callback not registered for request with id = " id)))))
+      (->err (str "RPC callback not registered for request with id = " id)))))
 
 ;; Function to handle requests
 (defn handle-request [data]
@@ -30,7 +33,7 @@
         handler (get @handlers method)]
     (if handler
       (handler data)
-      (println (str "Method " method " doesn't have registered handler")))))
+      (->err (str "Method " method " doesn't have registered handler")))))
 
 ;; Function to handle incoming JSON-RPC data
 (defn handle-data [data]
@@ -39,7 +42,7 @@
       method (handle-request data)
       (and result id) (handle-response data)
       (and error id) (handle-response data)
-      :else (println "Received invalid JSON-RPC:" data))))
+      :else (->err "Received invalid JSON-RPC:" data))))
 
 ;; Function to send a request
 (defn send-request
@@ -72,7 +75,7 @@
         (when-some [data (try
                            (<-json line)
                            (catch Throwable _
-                             (println "Couldn't parse: " (pr-str line))))]
+                             (->err "Couldn't parse: " (pr-str line))))]
           (try
             (handle-data data)
             (catch Throwable ex
