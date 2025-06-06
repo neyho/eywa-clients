@@ -1,23 +1,29 @@
-# json_rpc_handler.gemspec
+# eywa.gemspec
 Gem::Specification.new do |spec|
-  spec.name          = "eywa"
-  spec.version       = "0.1.0"
+  spec.name          = "eywa-client"
+  spec.version       = "0.2.0"
   spec.authors       = ["Robert Gersak"]
   spec.email         = ["r.gersak@gmail.com"]
 
-  spec.summary       = "A EYWA client for asynchronous communication with EYWA server."
-  spec.description   = "A Ruby gem that provides client for EYWA server."
-  # spec.homepage      = "https://github.com/yourusername/json_rpc_handler"
+  spec.summary       = "EYWA client for asynchronous communication with EYWA server"
+  spec.description   = "A Ruby gem that provides a client for EYWA server with JSON-RPC communication, GraphQL support, and task management."
+  spec.homepage      = "https://github.com/neyho/eywa"
   spec.license       = "MIT"
 
-  spec.files         = Dir["lib/**/*.rb"]
+  spec.files         = Dir["lib/**/*.rb", "README.md", "LICENSE"]
   spec.bindir        = "bin"
   spec.require_paths = ["lib"]
+  
+  spec.required_ruby_version = ">= 2.5.0"
 
-  spec.add_dependency "json", "~> 2.0"
-  spec.add_dependency "concurrent-ruby", "~> 1.1"
+  # Runtime dependencies
+  spec.add_runtime_dependency "json", "~> 2.0"
+  
+  # Development dependencies
+  spec.add_development_dependency "rake", "~> 13.0"
+  spec.add_development_dependency "minitest", "~> 5.0"
 
-  # spec.metadata["source_code_uri"] = "https://github.com/yourusername/json_rpc_handler"
-  # spec.metadata["changelog_uri"] = "https://github.com/yourusername/json_rpc_handler/CHANGELOG.md"
+  spec.metadata["homepage_uri"] = spec.homepage
+  spec.metadata["source_code_uri"] = "https://github.com/neyho/eywa"
+  spec.metadata["changelog_uri"] = "https://github.com/neyho/eywa/blob/main/CHANGELOG.md"
 end
-
