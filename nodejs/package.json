@@ -1,24 +1,41 @@
 {
   "name": "eywa-client",
-  "version": "0.0.9",
-  "description": "\"EYWA reacher client for NodeJS\"",
+  "version": "0.1.0",
+  "description": "EYWA client library for Node.js providing JSON-RPC communication, GraphQL queries, and task management for EYWA robots",
   "main": "src/eywa.js",
+  "types": "src/eywa.d.ts",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "type": "module",
   "keywords": [
-    "\"EYWA\"",
-    "\"client\"",
-    "\"JSON-RPC\""
+    "eywa",
+    "client",
+    "json-rpc",
+    "graphql",
+    "robotics",
+    "automation"
   ],
   "author": "Robert Gersak <robi@neyho.com>",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/neyho/eywa.git"
+  },
+  "bugs": {
+    "url": "https://github.com/neyho/eywa/issues"
+  },
+  "homepage": "https://github.com/neyho/eywa",
   "dependencies": {
-    "eywa-reacher-client": "^0.0.6",
     "nanoid": "^4.0.0"
   },
   "devDependencies": {
     "puppeteer": "^17.1.3"
-  }
+  },
+  "files": [
+    "src/",
+    "examples/",
+    "README.md",
+    "LICENSE"
+  ]
 }

@@ -4,8 +4,10 @@
   <packaging>jar</packaging>
   <groupId>org.neyho</groupId>
   <artifactId>eywa-client</artifactId>
-  <version>0.1.0</version>
+  <version>0.2.0</version>
   <name>eywa-client</name>
+  <description>EYWA client library for Babashka and Clojure providing JSON-RPC communication, GraphQL queries, and task management</description>
+  <url>https://github.com/neyho/eywa</url>
   <licenses>
     <license>
       <name>MIT License</name>
@@ -13,6 +15,18 @@
       <distribution>repo</distribution>
     </license>
   </licenses>
+  <developers>
+    <developer>
+      <name>Robert Gersak</name>
+      <email>robi@neyho.com</email>
+    </developer>
+  </developers>
+  <scm>
+    <url>https://github.com/neyho/eywa</url>
+    <connection>scm:git:git://github.com/neyho/eywa.git</connection>
+    <developerConnection>scm:git:ssh://git@github.com/neyho/eywa.git</developerConnection>
+    <tag>v0.2.0</tag>
+  </scm>
   <dependencies>
     <dependency>
       <groupId>org.clojure</groupId>

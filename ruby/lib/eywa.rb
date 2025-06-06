@@ -3,6 +3,9 @@ require 'json'
 require 'time'
 
 module Eywa
+  # Version
+  VERSION = "0.3.0"
+  
   # Task status constants
   SUCCESS = 'SUCCESS'
   ERROR = 'ERROR'

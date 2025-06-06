@@ -1,9 +1,9 @@
 # eywa.gemspec
 Gem::Specification.new do |spec|
   spec.name          = "eywa-client"
-  spec.version       = "0.2.0"
+  spec.version       = "0.3.0"
   spec.authors       = ["Robert Gersak"]
-  spec.email         = ["r.gersak@gmail.com"]
+  spec.email         = ["robi@neyho.com"]
 
   spec.summary       = "EYWA client for asynchronous communication with EYWA server"
   spec.description   = "A Ruby gem that provides a client for EYWA server with JSON-RPC communication, GraphQL support, and task management."

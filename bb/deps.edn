@@ -1,9 +1,17 @@
 {:deps
- {org.clojure/core.async                       {:mvn/version "1.6.681"}
-  cheshire/cheshire                            {:mvn/version "5.13.0"}
-  camel-snake-kebab/camel-snake-kebab          {:mvn/version "0.4.3"}}
+ {org.clojure/core.async {:mvn/version "1.6.681"}
+  cheshire/cheshire {:mvn/version "5.13.0"}
+  camel-snake-kebab/camel-snake-kebab {:mvn/version "0.4.3"}}
  :paths ["src"]
- :alias
+ :aliases
  {:dev
   {:extra-paths ["test"]
-   :extra-deps {dev.gersak/toddler-graphql {:mvn/version "1.0.0"}}}}}
+   :extra-deps {dev.gersak/toddler-graphql {:mvn/version "1.0.0"}}}
+  :jar
+  {:extra-deps {com.github.seancorfield/depstar {:mvn/version "2.1.303"}}
+   :exec-fn hf.depstar/jar
+   :exec-args {:jar "target/eywa-client.jar"
+               :group-id "org.neyho"
+               :artifact-id "eywa-client"
+               :version "0.2.0"
+               :sync-pom true}}}}
