@@ -1,2 +1,3 @@
 {:paths ["src" "dev"]
- :deps {org.neyho/eywa-client {:local/root "."}}}
+ :deps {org.neyho/eywa-client {:local/root "."}
+        dev.gersak/toddler-graphql {:mvn/version "1.0.0"}}}

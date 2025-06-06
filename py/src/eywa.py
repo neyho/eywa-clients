@@ -220,6 +220,10 @@ def trace(message, data=None):
     log(event="TRACE", message=message, data=data)
 
 
+def exception(message, data=None):
+    log(event="EXCEPTION", message=message, data=data)
+
+
 def report(message, data=None, image=None):
     send_notification({
         'method': 'task.report',

@@ -98,12 +98,28 @@
 (defn warn [message & [data]] (log "WARN" message :data data))
 (defn debug [message & [data]] (log "DEBUG" message :data data))
 (defn trace [message & [data]] (log "TRACE" message :data data))
+(defn exception [message & [data]] (log "EXCEPTION" message :data data))
+
+;; Report function
+(defn report
+  "Send a task report with optional data and image"
+  [message & {:keys [data image]}]
+  (send-notification {:method "task.report"
+                      :params {:message message
+                               :data data
+                               :image image}}))
+
+;; Task status constants
+(def SUCCESS "SUCCESS")
+(def ERROR "ERROR")
+(def PROCESSING "PROCESSING")
+(def EXCEPTION "EXCEPTION")
 
 ;; Task management
 (defn close-task [status]
   (send-notification {:method "task.close"
                       :params {:status status}})
-  (if (= status "SUCCESS")
+  (if (= status SUCCESS)
     (System/exit 0)
     (System/exit 1)))
 
@@ -111,24 +127,43 @@
   (send-notification {:method "task.update"
                       :params {:status status}}))
 
+(defn get-task
+  "Get current task information. Returns a promise channel."
+  []
+  (send-request {:method "task.get"}))
+
 (defn return-task []
   (send-notification {:method "task.return"})
   (System/exit 0))
 
 (defn graphql
-  ([{:keys [query variables]}]
-   (async/go
-     (let [{:keys [error result]}
-           (async/<!
-            (send-request
-             {:method "eywa.datasets.graphql"
-              :params {:query query
-                       :variables variables}}))]
-       (if-not error result
-               (ex-info
-                "GraphQL error"
-                error))))))
+  "Execute a GraphQL query. Can be called as:
+   (graphql query)
+   (graphql query variables)
+   (graphql {:query query :variables variables})"
+  ([query]
+   (graphql query nil))
+  ([query variables]
+   (if (map? query)
+     ;; Old API - called with a map
+     (let [{:keys [query variables]} query]
+       (graphql query variables))
+     ;; New API - called with separate args
+     (async/go
+       (let [{:keys [error result]}
+             (async/<!
+              (send-request
+               {:method "eywa.datasets.graphql"
+                :params {:query query
+                         :variables variables}}))]
+         (if-not error result
+                 (ex-info
+                  "GraphQL error"
+                  error)))))))
 
 ;; Main loop
 (defn start []
   (async/thread (read-stdin)))
+
+;; Alias for compatibility with other clients
+(def open-pipe start)

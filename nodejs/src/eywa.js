@@ -94,7 +94,7 @@ export const send_notification = (data) => {
 
 
 export const register_handler = (method, f) => {
-  handlers.set(method) = f
+  handlers.set(method, f)
 }
 
 
@@ -173,6 +173,10 @@ export const trace = (message, data = null) => {
   log({ 'event': 'TRACE', 'message': message, 'data': data })
 }
 
+export const exception = (message, data = null) => {
+  log({ 'event': 'EXCEPTION', 'message': message, 'data': data })
+}
+
 export const report = (message, data = null, image = null) => {
   send_notification({
     'method': 'task.report',
@@ -233,18 +237,36 @@ export const graphql = (query, variables = null) => {
 
 
 export default {
+  // Core JSON-RPC methods
   send_request: send_request,
   send_notification: send_notification,
   register_handler: register_handler,
   open_pipe: open_pipe,
+  
+  // Task management
   get_task: get_task,
-  log: log,
-  info: info,
-  warn: warn,
   update_task: update_task,
   return_task: return_task,
   close_task: close_task,
-  graphql: graphql
+  
+  // Logging methods
+  log: log,
+  info: info,
+  error: error,
+  debug: debug,
+  trace: trace,
+  warn: warn,
+  exception: exception,
+  report: report,
+  
+  // GraphQL
+  graphql: graphql,
+  
+  // Constants
+  SUCCESS: SUCCESS,
+  ERROR: ERROR,
+  PROCESSING: PROCESSING,
+  EXCEPTION: EXCEPTION
 }
 
 
