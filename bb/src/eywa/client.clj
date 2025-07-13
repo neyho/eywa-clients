@@ -3,7 +3,9 @@
    [clojure.pprint :refer [pprint]]
    [clojure.core.async :as async]
    [clojure.java.io :as io]
-   [eywa.client.json :refer [->json <-json]]))
+   [eywa.client.json :refer [->json <-json]])
+  ;; Try to load file operations, ignore if not available
+  (:require [eywa.client.files :as files] :reload))
 
 (def pending-rpcs (atom {}))
 (def handlers (atom {}))
@@ -167,3 +169,148 @@
 
 ;; Alias for compatibility with other clients
 (def open-pipe start)
+
+;; File operations - delegates to eywa.client.files namespace
+;; These functions return core.async channels
+
+(defn upload-file
+  "Upload a file to EYWA file service.
+  
+  Args:
+    filepath - Path to the file to upload (string or File)
+    options - Keyword args:
+      :name - Custom filename (defaults to file basename)
+      :content-type - MIME type (auto-detected if not provided)
+      :folder-uuid - UUID of parent folder (optional)
+      :progress-fn - Function called with (bytes-uploaded, total-bytes)
+  
+  Returns:
+    Core.async channel containing file information map"
+  [filepath & options]
+  (apply files/upload-file filepath options))
+
+(defn upload-content
+  "Upload content directly from memory.
+  
+  Args:
+    content - String or byte array content to upload
+    name - Filename for the content
+    options - Keyword args same as upload-file
+  
+  Returns:
+    Core.async channel containing file information map"
+  [content name & options]
+  (apply files/upload-content content name options))
+
+(defn download-file
+  "Download a file from EYWA file service.
+  
+  Args:
+    file-uuid - UUID of the file to download
+    options - Keyword args:
+      :save-path - Path to save file (if nil, returns content as bytes)
+      :progress-fn - Function called with (bytes-downloaded, total-bytes)
+  
+  Returns:
+    Core.async channel containing saved path or content bytes"
+  [file-uuid & options]
+  (apply files/download-file file-uuid options))
+
+(defn list-files
+  "List files in EYWA file service.
+  
+  Args:
+    options - Keyword args:
+      :limit - Maximum number of files to return
+      :status - Filter by status (PENDING, UPLOADED, etc.)
+      :name-pattern - Filter by name pattern (SQL LIKE)
+      :folder-uuid - Filter by folder UUID
+  
+  Returns:
+    Core.async channel containing list of file maps"
+  [& options]
+  (apply files/list-files options))
+
+(defn get-file-info
+  "Get information about a specific file.
+  
+  Args:
+    file-uuid - UUID of the file
+  
+  Returns:
+    Core.async channel containing file information map or nil"
+  [file-uuid]
+  (files/get-file-info file-uuid))
+
+(defn get-file-by-name
+  "Get file information by name (returns most recent if multiple).
+  
+  Args:
+    name - File name to search for
+  
+  Returns:
+    Core.async channel containing file information map or nil"
+  [name]
+  (files/get-file-by-name name))
+
+(defn delete-file
+  "Delete a file from EYWA file service.
+  
+  Args:
+    file-uuid - UUID of the file to delete
+  
+  Returns:
+    Core.async channel containing true if successful"
+  [file-uuid]
+  (files/delete-file file-uuid))
+
+(defn calculate-file-hash
+  "Calculate hash of a file for integrity verification.
+  
+  Args:
+    filepath - Path to the file
+    options - Keyword args:
+      :algorithm - Hash algorithm ('MD5', 'SHA-1', 'SHA-256', etc.)
+  
+  Returns:
+    Hex digest of the file hash"
+  [filepath & options]
+  (apply files/calculate-file-hash filepath options))
+
+;; Convenience functions
+(defn quick-upload
+  "Quick upload with minimal parameters.
+  Returns core.async channel with file UUID"
+  [filepath]
+  (files/quick-upload filepath))
+
+(defn quick-download
+  "Quick download to current directory.
+  Returns core.async channel with downloaded file path"
+  [file-uuid & options]
+  (apply files/quick-download file-uuid options))
+
+;; Data processing helpers
+(defn upload-json
+  "Upload JSON data from Clojure data structure.
+  Returns core.async channel with file information"
+  [data filename & options]
+  (apply files/upload-json data filename options))
+
+(defn download-json
+  "Download and parse JSON file.
+  Returns core.async channel with parsed Clojure data"
+  [file-uuid]
+  (files/download-json file-uuid))
+
+(defn upload-edn
+  "Upload EDN data from Clojure data structure.
+  Returns core.async channel with file information"
+  [data filename & options]
+  (apply files/upload-edn data filename options))
+
+(defn download-edn
+  "Download and parse EDN file.
+  Returns core.async channel with parsed Clojure data"
+  [file-uuid]
+  (files/download-edn file-uuid))

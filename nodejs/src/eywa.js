@@ -236,6 +236,46 @@ export const graphql = (query, variables = null) => {
 }
 
 
+// File operations - import from eywa_files module
+let fileOperations = {}
+try {
+  const fileOps = await import('./eywa_files.js')
+  fileOperations = {
+    uploadFile: fileOps.uploadFile,
+    uploadContent: fileOps.uploadContent,
+    downloadFile: fileOps.downloadFile,
+    listFiles: fileOps.listFiles,
+    getFileInfo: fileOps.getFileInfo,
+    getFileByName: fileOps.getFileByName,
+    deleteFile: fileOps.deleteFile,
+    calculateFileHash: fileOps.calculateFileHash,
+    quickUpload: fileOps.quickUpload,
+    quickDownload: fileOps.quickDownload,
+    FileUploadError: fileOps.FileUploadError,
+    FileDownloadError: fileOps.FileDownloadError
+  }
+} catch (error) {
+  // Provide stub functions if file operations module is not available
+  const notImplemented = () => {
+    throw new Error("File operations require additional dependencies. Install with: npm install mime-types")
+  }
+  
+  fileOperations = {
+    uploadFile: notImplemented,
+    uploadContent: notImplemented,
+    downloadFile: notImplemented,
+    listFiles: notImplemented,
+    getFileInfo: notImplemented,
+    getFileByName: notImplemented,
+    deleteFile: notImplemented,
+    calculateFileHash: notImplemented,
+    quickUpload: notImplemented,
+    quickDownload: notImplemented,
+    FileUploadError: class extends Error {},
+    FileDownloadError: class extends Error {}
+  }
+}
+
 export default {
   // Core JSON-RPC methods
   send_request: send_request,
@@ -261,6 +301,9 @@ export default {
   
   // GraphQL
   graphql: graphql,
+  
+  // File operations
+  ...fileOperations,
   
   // Constants
   SUCCESS: SUCCESS,

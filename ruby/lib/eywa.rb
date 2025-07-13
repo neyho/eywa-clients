@@ -2,6 +2,13 @@ require 'securerandom'
 require 'json'
 require 'time'
 
+# Load file operations if available
+begin
+  require_relative 'eywa_files'
+rescue LoadError
+  # File operations not available
+end
+
 module Eywa
   # Version
   VERSION = "0.3.0"

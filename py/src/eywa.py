@@ -279,6 +279,71 @@ async def graphql(query, variables=None):
     })
 
 
+# File operations - import from eywa_files module
+try:
+    from .eywa_files import (
+        upload_file,
+        upload_content,
+        download_file,
+        list_files,
+        get_file_info,
+        get_file_by_name,
+        delete_file,
+        calculate_file_hash,
+        quick_upload,
+        quick_download,
+        FileUploadError,
+        FileDownloadError
+    )
+except ImportError:
+    # If eywa_files module is not available, provide stub functions
+    async def upload_file(*args, **kwargs):
+        raise NotImplementedError(
+            "File operations require aiohttp. Install with: pip install aiohttp")
+
+    async def download_file(*args, **kwargs):
+        raise NotImplementedError(
+            "File operations require aiohttp. Install with: pip install aiohttp")
+
+    async def upload_content(*args, **kwargs):
+        raise NotImplementedError(
+            "File operations require aiohttp. Install with: pip install aiohttp")
+
+    async def list_files(*args, **kwargs):
+        raise NotImplementedError(
+            "File operations require aiohttp. Install with: pip install aiohttp")
+
+    async def get_file_info(*args, **kwargs):
+        raise NotImplementedError(
+            "File operations require aiohttp. Install with: pip install aiohttp")
+
+    async def get_file_by_name(*args, **kwargs):
+        raise NotImplementedError(
+            "File operations require aiohttp. Install with: pip install aiohttp")
+
+    async def delete_file(*args, **kwargs):
+        raise NotImplementedError(
+            "File operations require aiohttp. Install with: pip install aiohttp")
+
+    def calculate_file_hash(*args, **kwargs):
+        raise NotImplementedError(
+            "File operations require additional dependencies")
+
+    async def quick_upload(*args, **kwargs):
+        raise NotImplementedError(
+            "File operations require aiohttp. Install with: pip install aiohttp")
+
+    async def quick_download(*args, **kwargs):
+        raise NotImplementedError(
+            "File operations require aiohttp. Install with: pip install aiohttp")
+
+    class FileUploadError(Exception):
+        pass
+
+    class FileDownloadError(Exception):
+        pass
+
+
 __stdin__task__ = None
 
 
