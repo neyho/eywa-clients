@@ -4,7 +4,7 @@
   <packaging>jar</packaging>
   <groupId>org.neyho</groupId>
   <artifactId>eywa-client</artifactId>
-  <version>0.2.0</version>
+  <version>0.3.0</version>
   <name>eywa-client</name>
   <description>EYWA client library for Babashka and Clojure providing JSON-RPC communication, GraphQL queries, and task management</description>
   <url>https://github.com/neyho/eywa</url>

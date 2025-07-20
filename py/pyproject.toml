@@ -22,7 +22,7 @@ classifiers = [
     "Topic :: Software Development :: Libraries :: Python Modules",
 ]
 keywords = ["eywa", "client", "json-rpc", "graphql", "robotics", "automation"]
-version = "0.3.0"
+version = "0.3.1"
 description = "EYWA client library for Python providing JSON-RPC communication, GraphQL queries, and task management for EYWA robots"
 dependencies = [
   "nanoid>=2.0.0"
