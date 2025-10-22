@@ -45,12 +45,20 @@ async function main() {
     for (let i = 0; i < state.files.length; i++) {
       const file = state.files[i]
       const num = `[${i + 1}/${state.files.length}]`
-
+      
       console.log(`   ${num} Deleting ${file.name}...`)
-
+      
       try {
-        const result = await eywa.deleteFile(file.euuid)
-        console.log(`       ✓ Deleted (returned: ${result})`)
+        const timeoutPromise = new Promise((_, reject) => {
+          setTimeout(() => reject(new Error('Timeout after 10s')), 10000)
+        })
+        
+        await Promise.race([
+          eywa.deleteFile(file.euuid),
+          timeoutPromise
+        ])
+        
+        console.log(`       ✓ Deleted`)
       } catch (err) {
         console.log(`✗ (${err.message})`)
       }
