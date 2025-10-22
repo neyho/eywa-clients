@@ -1,8 +1,8 @@
 {
   "name": "eywa-client",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "EYWA client library for Node.js providing JSON-RPC communication, GraphQL queries, and task management for EYWA robots",
-  "main": "src/eywa.js",
+  "main": "src/index.js",
   "types": "src/eywa.d.ts",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
@@ -27,7 +27,9 @@
   },
   "homepage": "https://github.com/neyho/eywa",
   "dependencies": {
-    "nanoid": "^4.0.0"
+    "mime-types": "^2.1.35",
+    "nanoid": "^4.0.0",
+    "node-fetch": "^3.3.2"
   },
   "devDependencies": {
     "puppeteer": "^17.1.3"

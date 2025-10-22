@@ -1,6 +1,7 @@
 import { nanoid } from 'nanoid'
 import process from 'node:process'
 
+
 const rpc_callbacks = new Map()
 const handlers = new Map()
 
@@ -98,7 +99,7 @@ export const register_handler = (method, f) => {
 }
 
 
-let open_pipe = () => {
+export let open_pipe = () => {
   let buffer = '';
 
   // TODO - This is quick and dirty way to read large
@@ -234,85 +235,3 @@ export const graphql = (query, variables = null) => {
     }
   })
 }
-
-
-// File operations - import from eywa_files module
-let fileOperations = {}
-try {
-  const fileOps = await import('./eywa_files.js')
-  fileOperations = {
-    uploadFile: fileOps.uploadFile,
-    uploadContent: fileOps.uploadContent,
-    downloadFile: fileOps.downloadFile,
-    listFiles: fileOps.listFiles,
-    getFileInfo: fileOps.getFileInfo,
-    getFileByName: fileOps.getFileByName,
-    deleteFile: fileOps.deleteFile,
-    calculateFileHash: fileOps.calculateFileHash,
-    quickUpload: fileOps.quickUpload,
-    quickDownload: fileOps.quickDownload,
-    FileUploadError: fileOps.FileUploadError,
-    FileDownloadError: fileOps.FileDownloadError
-  }
-} catch (error) {
-  // Provide stub functions if file operations module is not available
-  const notImplemented = () => {
-    throw new Error("File operations require additional dependencies. Install with: npm install mime-types")
-  }
-  
-  fileOperations = {
-    uploadFile: notImplemented,
-    uploadContent: notImplemented,
-    downloadFile: notImplemented,
-    listFiles: notImplemented,
-    getFileInfo: notImplemented,
-    getFileByName: notImplemented,
-    deleteFile: notImplemented,
-    calculateFileHash: notImplemented,
-    quickUpload: notImplemented,
-    quickDownload: notImplemented,
-    FileUploadError: class extends Error {},
-    FileDownloadError: class extends Error {}
-  }
-}
-
-export default {
-  // Core JSON-RPC methods
-  send_request: send_request,
-  send_notification: send_notification,
-  register_handler: register_handler,
-  open_pipe: open_pipe,
-  
-  // Task management
-  get_task: get_task,
-  update_task: update_task,
-  return_task: return_task,
-  close_task: close_task,
-  
-  // Logging methods
-  log: log,
-  info: info,
-  error: error,
-  debug: debug,
-  trace: trace,
-  warn: warn,
-  exception: exception,
-  report: report,
-  
-  // GraphQL
-  graphql: graphql,
-  
-  // File operations
-  ...fileOperations,
-  
-  // Constants
-  SUCCESS: SUCCESS,
-  ERROR: ERROR,
-  PROCESSING: PROCESSING,
-  EXCEPTION: EXCEPTION
-}
-
-
-// info('hello from nodejs')
-// close()
-// openPipe()

@@ -15,7 +15,7 @@ import { createHash } from 'crypto'
 import { pipeline } from 'stream/promises'
 import fetch from 'node-fetch'
 import { lookup } from 'mime-types'
-import * as eywa from './eywa.js'
+import { graphql, send_request, info, debug, error, warn } from './eywa.js'
 
 export class FileUploadError extends Error {
     constructor(message) {
@@ -63,7 +63,7 @@ export async function uploadFile(filepath, options = {}) {
         const fileName = name || basename(filepath)
         const detectedContentType = contentType || lookup(filepath) || 'application/octet-stream'
 
-        eywa.info(`Starting upload: ${fileName} (${fileSize} bytes)`)
+        info(`Starting upload: ${fileName} (${fileSize} bytes)`)
 
         // Step 1: Request upload URL
         const uploadQuery = `
@@ -84,10 +84,10 @@ export async function uploadFile(filepath, options = {}) {
             variables.file.folder = { euuid: folderUuid }
         }
 
-        const result = await eywa.graphql(uploadQuery, variables)
+        const result = await graphql(uploadQuery, variables)
         const uploadUrl = result.data.requestUploadURL
 
-        eywa.debug(`Upload URL received: ${uploadUrl.substring(0, 50)}...`)
+        debug(`Upload URL received: ${uploadUrl.substring(0, 50)}...`)
 
         // Step 2: Upload file to S3
         const fileData = await fs.readFile(filepath)
@@ -113,7 +113,7 @@ export async function uploadFile(filepath, options = {}) {
             progressCallback(fileSize, fileSize)
         }
 
-        eywa.debug('File uploaded to S3 successfully')
+        debug('File uploaded to S3 successfully')
 
         // Step 3: Confirm upload
         const confirmQuery = `
@@ -122,13 +122,13 @@ export async function uploadFile(filepath, options = {}) {
             }
         `
 
-        const confirmResult = await eywa.graphql(confirmQuery, { url: uploadUrl })
+        const confirmResult = await graphql(confirmQuery, { url: uploadUrl })
 
         if (!confirmResult.data.confirmFileUpload) {
             throw new FileUploadError('Upload confirmation failed')
         }
 
-        eywa.debug('Upload confirmed')
+        debug('Upload confirmed')
 
         // Step 4: Get file information
         const fileInfo = await getFileByName(fileName)
@@ -136,12 +136,12 @@ export async function uploadFile(filepath, options = {}) {
             throw new FileUploadError('Could not retrieve uploaded file information')
         }
 
-        eywa.info(`Upload completed: ${fileName} -> ${fileInfo.euuid}`)
+        info(`Upload completed: ${fileName} -> ${fileInfo.euuid}`)
         return fileInfo
 
-    } catch (error) {
-        eywa.error(`Upload failed: ${error.message}`)
-        throw new FileUploadError(`Upload failed: ${error.message}`)
+    } catch (err) {
+        error(`Upload failed: ${err.message}`)
+        throw new FileUploadError(`Upload failed: ${err.message}`)
     }
 }
 
@@ -170,7 +170,7 @@ export async function uploadContent(content, name, options = {}) {
 
     const fileSize = content.length
 
-    eywa.info(`Starting content upload: ${name} (${fileSize} bytes)`)
+    info(`Starting content upload: ${name} (${fileSize} bytes)`)
 
     try {
         // Step 1: Request upload URL
@@ -192,7 +192,7 @@ export async function uploadContent(content, name, options = {}) {
             variables.file.folder = { euuid: folderUuid }
         }
 
-        const result = await eywa.graphql(uploadQuery, variables)
+        const result = await graphql(uploadQuery, variables)
         const uploadUrl = result.data.requestUploadURL
 
         // Step 2: Upload content to S3
@@ -224,7 +224,7 @@ export async function uploadContent(content, name, options = {}) {
             }
         `
 
-        const confirmResult = await eywa.graphql(confirmQuery, { url: uploadUrl })
+        const confirmResult = await graphql(confirmQuery, { url: uploadUrl })
 
         if (!confirmResult.data.confirmFileUpload) {
             throw new FileUploadError('Upload confirmation failed')
@@ -236,12 +236,12 @@ export async function uploadContent(content, name, options = {}) {
             throw new FileUploadError('Could not retrieve uploaded file information')
         }
 
-        eywa.info(`Content upload completed: ${name} -> ${fileInfo.euuid}`)
+        info(`Content upload completed: ${name} -> ${fileInfo.euuid}`)
         return fileInfo
 
-    } catch (error) {
-        eywa.error(`Content upload failed: ${error.message}`)
-        throw new FileUploadError(`Content upload failed: ${error.message}`)
+    } catch (err) {
+        error(`Content upload failed: ${err.message}`)
+        throw new FileUploadError(`Content upload failed: ${err.message}`)
     }
 }
 
@@ -255,7 +255,7 @@ export async function uploadContent(content, name, options = {}) {
  * @throws {FileDownloadError} If download fails
  */
 export async function downloadFile(fileUuid, savePath = null, progressCallback = null) {
-    eywa.info(`Starting download: ${fileUuid}`)
+    info(`Starting download: ${fileUuid}`)
 
     try {
         // Step 1: Request download URL
@@ -265,10 +265,10 @@ export async function downloadFile(fileUuid, savePath = null, progressCallback =
             }
         `
 
-        const result = await eywa.graphql(downloadQuery, { file: { euuid: fileUuid } })
+        const result = await graphql(downloadQuery, { file: { euuid: fileUuid } })
         const downloadUrl = result.data.requestDownloadURL
 
-        eywa.debug(`Download URL received: ${downloadUrl.substring(0, 50)}...`)
+        debug(`Download URL received: ${downloadUrl.substring(0, 50)}...`)
 
         // Step 2: Download file
         const response = await fetch(downloadUrl)
@@ -300,7 +300,7 @@ export async function downloadFile(fileUuid, savePath = null, progressCallback =
             
             await pipeline(response.body, writeStream)
 
-            eywa.info(`Download completed: ${fileUuid} -> ${savePath}`)
+            info(`Download completed: ${fileUuid} -> ${savePath}`)
             return savePath
         } else {
             // Return content as buffer
@@ -310,13 +310,13 @@ export async function downloadFile(fileUuid, savePath = null, progressCallback =
                 progressCallback(content.length, content.length)
             }
 
-            eywa.info(`Download completed: ${fileUuid} (${content.length} bytes)`)
+            info(`Download completed: ${fileUuid} (${content.length} bytes)`)
             return content
         }
 
-    } catch (error) {
-        eywa.error(`Download failed: ${error.message}`)
-        throw new FileDownloadError(`Download failed: ${error.message}`)
+    } catch (err) {
+        error(`Download failed: ${err.message}`)
+        throw new FileDownloadError(`Download failed: ${err.message}`)
     }
 }
 
@@ -333,7 +333,7 @@ export async function downloadFile(fileUuid, savePath = null, progressCallback =
 export async function listFiles(options = {}) {
     const { limit, status, namePattern, folderUuid } = options
 
-    eywa.debug(`Listing files (limit=${limit}, status=${status})`)
+    debug(`Listing files (limit=${limit}, status=${status})`)
 
     try {
         const query = `
@@ -383,15 +383,15 @@ export async function listFiles(options = {}) {
             }
         }
 
-        const result = await eywa.graphql(query, variables)
+        const result = await graphql(query, variables)
         const files = result.data.searchFile
 
-        eywa.debug(`Found ${files.length} files`)
+        debug(`Found ${files.length} files`)
         return files
 
-    } catch (error) {
-        eywa.error(`Failed to list files: ${error.message}`)
-        throw error
+    } catch (err) {
+        error(`Failed to list files: ${err.message}`)
+        return []
     }
 }
 
@@ -423,11 +423,11 @@ export async function getFileInfo(fileUuid) {
             }
         `
 
-        const result = await eywa.graphql(query, { uuid: fileUuid })
+        const result = await graphql(query, { uuid: fileUuid })
         return result.data.getFile
 
-    } catch (error) {
-        eywa.debug(`File not found or error: ${error.message}`)
+    } catch (err) {
+        debug(`File not found or error: ${err.message}`)
         return null
     }
 }
@@ -457,20 +457,20 @@ export async function deleteFile(fileUuid) {
             }
         `
 
-        const result = await eywa.graphql(query, { uuid: fileUuid })
+        const result = await graphql(query, { uuid: fileUuid })
         const success = result.data.deleteFile
 
         if (success) {
-            eywa.info(`File deleted: ${fileUuid}`)
+            info(`File deleted: ${fileUuid}`)
         } else {
-            eywa.warn(`File deletion failed: ${fileUuid}`)
+            warn(`File deletion failed: ${fileUuid}`)
         }
 
         return success
 
-    } catch (error) {
-        eywa.error(`Failed to delete file: ${error.message}`)
-        return false
+    } catch (err) {
+        error(`Failed to delete file: ${err.message}`)
+        throw new Error(`Failed to delete file: ${err.message}`)
     }
 }
 
