@@ -32,16 +32,11 @@ import {
 
 // Import file operations
 import {
+  createFolder,
+  deleteFolder,
   uploadFile,
-  uploadContent,
   downloadFile,
-  listFiles,
-  getFileInfo,
-  getFileByName,
   deleteFile,
-  calculateFileHash,
-  quickUpload,
-  quickDownload,
   FileUploadError,
   FileDownloadError
 } from './eywa_files.js'
@@ -69,21 +64,14 @@ export default {
   warn,
   exception,
   report,
-  
-  // GraphQL
   graphql,
   
   // File operations
+  createFolder,
+  deleteFolder,
   uploadFile,
-  uploadContent,
   downloadFile,
-  listFiles,
-  getFileInfo,
-  getFileByName,
   deleteFile,
-  calculateFileHash,
-  quickUpload,
-  quickDownload,
   FileUploadError,
   FileDownloadError,
   
@@ -114,19 +102,16 @@ export {
   exception,
   report,
   graphql,
+  
   // File operations
+  createFolder,
+  deleteFolder,
   uploadFile,
-  uploadContent,
   downloadFile,
-  listFiles,
-  getFileInfo,
-  getFileByName,
   deleteFile,
-  calculateFileHash,
-  quickUpload,
-  quickDownload,
   FileUploadError,
   FileDownloadError,
+  
   // Constants
   SUCCESS,
   ERROR,
