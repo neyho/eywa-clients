@@ -1,7 +1,7 @@
 {
   "name": "eywa-client",
-  "version": "0.1.1",
-  "description": "EYWA client library for Node.js providing JSON-RPC communication, GraphQL queries, and task management for EYWA robots",
+  "version": "0.2.0",
+  "description": "EYWA client library for Node.js: JSON-RPC, GraphQL, stream-based file operations, and task management",
   "main": "src/index.js",
   "types": "src/eywa.d.ts",
   "scripts": {
@@ -13,8 +13,13 @@
     "client",
     "json-rpc",
     "graphql",
+    "files",
+    "upload",
+    "download",
+    "streams",
     "robotics",
-    "automation"
+    "automation",
+    "data-modeling"
   ],
   "author": "Robert Gersak <robi@neyho.com>",
   "license": "MIT",

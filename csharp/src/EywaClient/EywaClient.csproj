@@ -1,0 +1,42 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    
+    <!-- Package Information -->
+    <PackageId>EywaClient</PackageId>
+    <Version>0.1.0</Version>
+    <Authors>Robert Gersak</Authors>
+    <Company>neyho.com</Company>
+    <Product>EYWA Client</Product>
+    <Description>EYWA client library for .NET: JSON-RPC, GraphQL, stream-based file operations, and task management for robotic process automation</Description>
+    <Copyright>Copyright © 2025 Robert Gersak</Copyright>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/neyho/eywa</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/neyho/eywa</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageTags>eywa;client;json-rpc;graphql;files;upload;download;streams;robotics;automation;data-modeling;rpa</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    
+    <!-- Documentation -->
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <DocumentationFile>bin\$(Configuration)\$(TargetFramework)\$(AssemblyName).xml</DocumentationFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="MimeMapping" Version="3.0.1" />
+    <PackageReference Include="MimeTypes" Version="2.5.2">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="System.Text.Json" Version="9.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\..\README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+</Project>
