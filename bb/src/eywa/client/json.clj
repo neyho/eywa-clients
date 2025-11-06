@@ -11,24 +11,6 @@
 (defn- snake-case [data]
   (str/replace (name data) #"[\-\s]+" "_"))
 
-; (defn pkey-fn [data]
-;   (if (re-find #"[a-zA-Z]" data)
-;     (if (re-find uuid-pattern data)
-;       data
-;       (let [[keyword-or-namespace _keyword] 
-;             (str/split data #"/")] 
-;         (if _keyword
-;           (keyword 
-;             keyword-or-namespace 
-;             (str/replace 
-;               _keyword
-;               #"[_\s]+" "-"))
-;           (keyword
-;             (str/replace 
-;               keyword-or-namespace
-;               #"[_\s]+" "-")))))
-;     (read-string data)))
-
 (defn eywa-val-fn
   "Helper function for transforming dates and other objects to Clojure data
   objects"
