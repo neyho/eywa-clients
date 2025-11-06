@@ -149,7 +149,6 @@
        :code 0
        :message (.getMessage e)})))
 
-
 (defn- http-get-stream!
   "Perform HTTP GET request and return InputStream for streaming using babashka.http-client.
   
@@ -204,26 +203,30 @@
   
   Args:
     filepath - Path to the file to upload (string or File)
-    opts - Map of options matching FileInput fields:
-      :name - Custom filename (defaults to file basename)
-      :content-type - MIME type (auto-detected if not provided)
-      :folder-uuid - UUID of parent folder (optional)
+    file-data - Map matching FileInput GraphQL type:
+      :name - Filename (optional, defaults to file basename)
       :euuid - UUID of existing file to replace (optional)
-      :progress-fn - Function called with (bytes-uploaded, total-bytes)
+      :folder - Parent folder as {:euuid ...} (optional)
+      :content_type - MIME type (optional, auto-detected if not provided)
+      :size - File size (optional, auto-calculated)
+      :progress-fn - Progress callback (optional, not sent to GraphQL)
   
   Returns:
-    Core.async channel that will contain file information map or exception
+    Core.async channel that will contain nil on success or exception on failure
     
   Examples:
-    ;; Upload new file
-    (<! (upload \"file.txt\" {:folder-uuid folder-id}))
+    ;; Upload new file to root
+    (<! (upload \"file.txt\" {:name \"file.txt\"}))
+    
+    ;; Upload to folder
+    (<! (upload \"file.txt\" {:name \"file.txt\" :folder {:euuid folder-id}}))
     
     ;; Replace existing file
     (<! (upload \"file.txt\" {:euuid existing-file-id}))"
-  [filepath opts]
+  [filepath file-data]
   (go
     (try
-      (let [{:keys [name content-type folder-uuid euuid progress-fn]} opts
+      (let [progress-fn (:progress-fn file-data)
 
             file (if (instance? File filepath) filepath (File. filepath))
             _ (when-not (.exists file)
@@ -232,17 +235,18 @@
                 (throw (file-upload-error (str "Path is not a file: " filepath))))
 
             file-size (.length file)
-            file-name (or name (.getName file))
-            detected-content-type (or content-type (mime-type file-name))
+            file-name (or (:name file-data) (.getName file))
+            detected-content-type (or (:content_type file-data) (mime-type file-name))
 
             ;; Step 1: Request upload URL
             upload-query "mutation RequestUpload($file: FileInput!) { requestUploadURL(file: $file)}"
 
-            file-input (cond-> {:name file-name
-                                :content_type detected-content-type
-                                :size file-size}
-                         folder-uuid (assoc :folder {:euuid folder-uuid})
-                         euuid (assoc :euuid euuid))
+            ;; Build file input - use file-data directly, just fill in computed values
+            file-input (-> file-data
+                           (dissoc :progress-fn) ; Remove non-GraphQL field
+                           (assoc :name file-name
+                                  :content_type detected-content-type
+                                  :size file-size))
 
             {:keys [error]
              :as result} (<! (client/graphql upload-query {:file file-input}))
@@ -284,43 +288,45 @@
   
   Args:
     input-stream - InputStream to upload from (will be closed by this function)
-    file-name - Name for the uploaded file
-    content-length - Total bytes to upload (must be known upfront)
-    opts - Map of options matching FileInput fields:
-      :content-type - MIME type (default: application/octet-stream)
-      :folder-uuid - UUID of parent folder (optional)
+    file-data - Map matching FileInput GraphQL type:
+      :name - Filename (required)
+      :size - Content length in bytes (required)
       :euuid - UUID of existing file to replace (optional)
-      :progress-fn - Function called with (bytes-uploaded, total-bytes)
+      :folder - Parent folder as {:euuid ...} (optional)
+      :content_type - MIME type (optional, default: application/octet-stream)
+      :progress-fn - Progress callback (optional, not sent to GraphQL)
   
   Returns:
-    Core.async channel that will contain file information map or exception
+    Core.async channel that will contain nil on success or exception on failure
   
   Examples:
-    ;; Upload new file from stream
+    ;; Upload new file from stream to root
     (with-open [is (io/input-stream source)]
-      (<! (upload-stream is \"data.bin\" file-size {:content-type \"application/octet-stream\"})))
+      (<! (upload-stream is {:name \"data.bin\" :size file-size})))
+    
+    ;; Upload to folder
+    (with-open [is (io/input-stream source)]
+      (<! (upload-stream is {:name \"data.bin\" :size file-size :folder {:euuid folder-id}})))
     
     ;; Replace existing file from stream
     (with-open [is (io/input-stream source)]
-      (<! (upload-stream is \"data.bin\" file-size {:euuid existing-file-id})))"
-  [input-stream file-name content-length opts]
+      (<! (upload-stream is {:euuid existing-file-id :name \"data.bin\" :size file-size})))"
+  [input-stream file-data]
   (go
     (try
-      (let [{:keys [content-type folder-uuid euuid progress-fn]
-             :or {content-type "application/octet-stream"}} opts
-
-            _ (client/info (str "Starting stream upload: " file-name " (" content-length " bytes)"))
+      (let [content-type (or (:content_type file-data) "application/octet-stream")
+            content-length (:size file-data)
+            progress-fn (:progress-fn file-data)
 
             ;; Step 1: Request upload URL
             upload-query "mutation RequestUpload($file: FileInput!) {
                            requestUploadURL(file: $file)
                          }"
 
-            file-input (cond-> {:name file-name
-                                :content_type content-type
-                                :size content-length}
-                         folder-uuid (assoc :folder {:euuid folder-uuid})
-                         euuid (assoc :euuid euuid))
+            ;; Build file input - use file-data directly, just fill in defaults
+            file-input (-> file-data
+                           (dissoc :progress-fn) ; Remove non-GraphQL field
+                           (assoc :content_type content-type))
 
             {:keys [error]
              :as result} (<! (client/graphql upload-query {:file file-input}))
@@ -330,8 +336,6 @@
             upload-url (get-in result [:data :requestUploadURL])
             _ (when-not upload-url (throw (file-upload-error "No upload URL in response")))
 
-            _ (client/debug (str "Upload URL received: " (subs upload-url 0 (min 50 (count upload-url))) "..."))
-
             ;; Step 2: Stream to S3
             upload-result (try
                             (http-put-stream! upload-url input-stream content-length content-type progress-fn)
@@ -340,8 +344,6 @@
 
             _ (when (= :error (:status upload-result))
                 (throw (file-upload-error (str "S3 upload failed (" (:code upload-result) "): " (:message upload-result)))))
-
-            _ (client/debug "Stream uploaded to S3 successfully")
 
             ;; Step 3: Confirm upload
             confirm-query "mutation ConfirmUpload($url: String!) {
@@ -359,7 +361,6 @@
         nil)
 
       (catch Exception e
-        (client/error (str "Stream upload failed: " (.getMessage e)))
         e))))
 
 (defn upload-content
@@ -367,45 +368,46 @@
   
   Args:
     content - String or byte array content to upload
-    name - Filename for the content
-    opts - Map of options matching FileInput fields:
-      :content-type - MIME type (default: 'text/plain')
-      :folder-uuid - UUID of parent folder (optional)
+    file-data - Map matching FileInput GraphQL type:
+      :name - Filename (required)
       :euuid - UUID of existing file to replace (optional)
-      :progress-fn - Function called with (bytes-uploaded, total-bytes)
+      :folder - Parent folder as {:euuid ...} (optional)
+      :content_type - MIME type (optional, default: text/plain)
+      :size - Content size (optional, auto-calculated)
+      :progress-fn - Progress callback (optional, not sent to GraphQL)
   
   Returns:
-    Core.async channel that will contain file information map or exception
+    Core.async channel that will contain nil on success or exception on failure
     
   Examples:
-    ;; Upload new content
-    (<! (upload-content \"Hello World\" \"greeting.txt\" {:content-type \"text/plain\"}))
+    ;; Upload new content to root
+    (<! (upload-content \"Hello World\" {:name \"greeting.txt\"}))
+    
+    ;; Upload to folder
+    (<! (upload-content \"Hello World\" {:name \"greeting.txt\" :folder {:euuid folder-id}}))
     
     ;; Replace existing file content
-    (<! (upload-content \"Updated content\" \"greeting.txt\" {:euuid existing-file-id}))"
-  [content name opts]
+    (<! (upload-content \"Updated content\" {:name \"greeting.txt\" :euuid existing-file-id}))"
+  [content file-data]
   (go
     (try
-      (let [{:keys [content-type folder-uuid euuid progress-fn]
-             :or {content-type "text/plain"}} opts
-
-            content-bytes (if (string? content)
+      (let [content-bytes (if (string? content)
                             (.getBytes content "UTF-8")
                             content)
             file-size (count content-bytes)
-
-            _ (client/info (str "Starting content upload: " name " (" file-size " bytes)"))
+            content-type (or (:content_type file-data) "text/plain")
+            progress-fn (:progress-fn file-data)
 
             ;; Step 1: Request upload URL
             upload-query "mutation RequestUpload($file: FileInput!) {
                            requestUploadURL(file: $file)
                          }"
 
-            file-input (cond-> {:name name
-                                :content_type content-type
-                                :size file-size}
-                         folder-uuid (assoc :folder {:euuid folder-uuid})
-                         euuid (assoc :euuid euuid))
+            ;; Build file input - use file-data directly, just fill in computed values
+            file-input (-> file-data
+                           (dissoc :progress-fn) ; Remove non-GraphQL field
+                           (assoc :content_type content-type
+                                  :size file-size))
 
             {:keys [error]
              :as result} (<! (client/graphql upload-query {:file file-input}))
@@ -435,7 +437,6 @@
         nil)
 
       (catch Exception e
-        (client/error (str "Content upload failed: " (.getMessage e)))
         e))))
 
 (defn download-stream
@@ -464,9 +465,7 @@
   [file-uuid]
   (go
     (try
-      (let [_ (client/info (str "Starting streaming download: " file-uuid))
-
-            ;; Step 1: Request download URL
+      (let [;; Step 1: Request download URL
             download-query "query RequestDownload($file: FileInput!) {
                              requestDownloadURL(file: $file)
                            }"
@@ -479,20 +478,16 @@
             download-url (get-in result [:data :requestDownloadURL])
             _ (when-not download-url (throw (file-download-error "No download URL in response")))
 
-            _ (client/debug (str "Download URL received: " (subs download-url 0 (min 50 (count download-url))) "..."))
-
             ;; Step 2: Get InputStream from S3
             stream-result (http-get-stream! download-url)
 
             _ (when (= :error (:status stream-result))
                 (throw (file-download-error (str "Download failed (" (:code stream-result) ")"))))]
 
-        (client/info (str "Stream ready for: " file-uuid " (" (:content-length stream-result) " bytes)"))
         {:stream (:stream stream-result)
          :content-length (:content-length stream-result)})
 
       (catch Exception e
-        (client/error (str "Stream download failed: " (.getMessage e)))
         e))))
 
 (defn download
@@ -537,7 +532,6 @@
                               (progress-fn @total-read content-length))
                             (recur))))))
 
-                  (client/info (str "Download completed: " file-uuid " -> " save-path))
                   save-path)
 
                 ;; Return content as bytes
@@ -555,7 +549,6 @@
                           (recur)))))
 
                   (let [content (.toByteArray baos)]
-                    (client/info (str "Download completed: " file-uuid " (" (count content) " bytes)"))
                     content)))
 
               (catch Exception e
@@ -563,7 +556,6 @@
                 (throw e))))))
 
       (catch Exception e
-        (client/error (str "Download failed: " (.getMessage e)))
         e))))
 
 (defn list
@@ -581,9 +573,7 @@
   [& {:keys [limit status name-pattern folder-uuid]}]
   (go
     (try
-      (let [_ (client/debug (str "Listing files (limit=" limit ", status=" status ")"))
-
-            query "query ListFiles($limit: Int, $where: FileWhereInput) {
+      (let [query "query ListFiles($limit: Int, $where: FileWhereInput) {
                      searchFile(_limit: $limit, _where: $where, _order_by: {uploaded_at: desc}) {
                        euuid
                        name
@@ -620,11 +610,9 @@
 
             files (get-in result [:data :searchFile])]
 
-        (client/debug (str "Found " (count files) " files"))
         files)
 
       (catch Exception e
-        (client/error (str "Failed to list files: " (.getMessage e)))
         e))))
 
 (defn info
@@ -659,16 +647,11 @@
             {:keys [error]
              :as result} (<! (client/graphql query {:uuid file-uuid}))]
 
-        (if error
-          (do
-            (client/debug (str "File not found or error: " error))
-            nil)
+        (when-not error
           (get-in result [:data :getFile])))
 
       (catch Exception e
-        (client/debug (str "File not found or error: " (.getMessage e)))
         nil))))
-
 
 (defn delete
   "Delete a file from EYWA file service.
@@ -691,15 +674,9 @@
             _ (when error (throw (ex-info (str "Failed to delete file: " error) {:error error})))
 
             success? (get-in result [:data :deleteFile])]
-
-        (if success?
-          (client/info (str "File deleted: " file-uuid))
-          (client/warn (str "File deletion failed: " file-uuid)))
-
         success?)
 
       (catch Exception e
-        (client/error (str "Failed to delete file: " (.getMessage e)))
         false))))
 
 (defn hash
@@ -715,27 +692,40 @@
                :or {algorithm "SHA-256"}}]
   (calculate-hash (File. filepath) algorithm))
 
-;; Folder operations
+(def root-euuid #uuid "87ce50d8-5dfa-4008-a265-053e727ab793")
+(def root-folder {:euuid root-euuid})
 
+;; Folder operations
 (defn create-folder
   "Create a new folder in EYWA file service.
   
   Args:
-    name - Folder name
-    parent-folder-uuid - UUID of parent folder (optional, nil for root)
+    folder-data - Map matching FolderInput GraphQL type:
+      :name - Folder name (required)
+      :euuid - Custom UUID for folder (optional, EYWA generates if not provided)
+      :parent - Parent folder as {:euuid ...} (optional, nil/missing = root)
   
   Returns:
-    Core.async channel containing folder information map or exception"
-  [name & {:keys [parent-folder-uuid]}]
+    Core.async channel containing folder information map or exception
+    
+  Examples:
+    ;; Create folder in root
+    (<! (create-folder {:name \"my-folder\"}))
+    
+    ;; Create folder with parent
+    (<! (create-folder {:name \"subfolder\" :parent {:euuid parent-uuid}}))
+    
+    ;; Create folder with custom UUID and parent
+    (<! (create-folder {:name \"my-folder\" :euuid custom-uuid :parent {:euuid parent-uuid}}))"
+  [folder-data]
   (go
     (try
-      (let [_ (client/info (str "Creating folder: " name))
-
-            mutation "mutation CreateFolder($folder: FolderInput!) {
-                       syncFolder(data: $folder) {
+      (let [mutation "mutation CreateFolder($folder: FolderInput!) {
+                       stackFolder(data: $folder) {
                          euuid
                          name
-                         created_at
+                         path
+                         modified_on
                          parent {
                            euuid
                            name
@@ -743,21 +733,18 @@
                        }
                      }"
 
-            variables (cond-> {:folder {:name name}}
-                        parent-folder-uuid (assoc-in [:folder :parent :euuid] parent-folder-uuid))
+            variables {:folder folder-data}
 
             {:keys [error]
              :as result} (<! (client/graphql mutation variables))
 
             _ (when error (throw (ex-info (str "Failed to create folder: " error) {:error error})))
 
-            folder (get-in result [:data :syncFolder])]
+            folder (get-in result [:data :stackFolder])]
 
-        (client/info (str "Folder created: " name " -> " (:euuid folder)))
         folder)
 
       (catch Exception e
-        (client/error (str "Failed to create folder: " (.getMessage e)))
         e))))
 
 (defn list-folders
@@ -774,9 +761,7 @@
   [& {:keys [limit name-pattern parent-folder-uuid]}]
   (go
     (try
-      (let [_ (client/debug (str "Listing folders (limit=" limit ")"))
-
-            query "query ListFolders($limit: Int, $where: FolderWhereInput) {
+      (let [query "query ListFolders($limit: Int, $where: FolderWhereInput) {
                      searchFolder(_limit: $limit, _where: $where, _order_by: {name: asc}) {
                        euuid
                        name
@@ -809,11 +794,9 @@
 
             folders (get-in result [:data :searchFolder])]
 
-        (client/debug (str "Found " (count folders) " folders"))
         folders)
 
       (catch Exception e
-        (client/error (str "Failed to list folders: " (.getMessage e)))
         e))))
 
 (defn get-folder-info
@@ -842,14 +825,10 @@
             {:keys [error]
              :as result} (<! (client/graphql query {:uuid folder-uuid}))]
 
-        (if error
-          (do
-            (client/debug (str "Folder not found or error: " error))
-            nil)
+        (when-not error
           (get-in result [:data :getFolder])))
 
       (catch Exception e
-        (client/debug (str "Folder not found or error: " (.getMessage e)))
         nil))))
 
 (defn delete-folder
@@ -875,15 +854,9 @@
             _ (when error (throw (ex-info (str "Failed to delete folder: " error) {:error error})))
 
             success? (get-in result [:data :deleteFolder])]
-
-        (if success?
-          (client/info (str "Folder deleted: " folder-uuid))
-          (client/warn (str "Folder deletion failed: " folder-uuid)))
-
         success?)
 
       (catch Exception e
-        (client/error (str "Failed to delete folder: " (.getMessage e)))
         false))))
 
 (comment
@@ -895,8 +868,15 @@
                 {:euuid #uuid "210d5d37-1f96-4f1f-aa45-6cd4bed0a3b0"
                  :name "robi_test1"
                  :content-type "txt"}))))
-  result
   (delete #uuid "210d5d37-1f96-4f1f-aa45-6cd4bed0a3b0")
+  result
+  (async/go
+    (def result
+      (async/<!
+        (create-folder
+          {:name "TEST_ROBI_2"
+           :euuid #uuid "210d5d37-1f96-4f1f-aa45-6cd4bed0a3b0"
+           :parent root-folder}))))
   (async/go
     (def result
       (async/<!

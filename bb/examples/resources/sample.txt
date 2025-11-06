@@ -1,0 +1,11 @@
+Hello from EYWA!
+
+This is a sample text file for testing file upload and download operations.
+The file contains multiple lines to make it more realistic.
+
+Line 1: Testing basic upload
+Line 2: Testing streaming
+Line 3: Testing download
+Line 4: Testing file integrity
+
+End of sample file.
