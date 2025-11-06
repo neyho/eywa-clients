@@ -6,7 +6,7 @@
 ;; This script deletes all test files and folders created by file_operations_simple.clj
 
 (require '[eywa.client :as client]
-         '[eywa.client.files :as files]
+         '[eywa.files :as files]
          '[clojure.core.async :as async])
 
 (import '[java.util UUID])

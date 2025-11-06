@@ -1,4 +1,4 @@
-(ns eywa.client.files
+(ns eywa.files
   "EYWA File Operations for Babashka/Clojure
 
   This namespace provides comprehensive file upload/download capabilities
