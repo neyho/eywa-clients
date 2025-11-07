@@ -277,8 +277,7 @@
             _ (when-not confirmed? (throw (file-upload-error "Upload confirmation returned false")))]
         nil)
 
-      (catch Exception e
-        e))))
+      (catch Exception e e))))
 
 (defn upload-stream
   "Upload data from an InputStream to EYWA file service.
@@ -360,8 +359,7 @@
 
         nil)
 
-      (catch Exception e
-        e))))
+      (catch Exception e e))))
 
 (defn upload-content
   "Upload content directly from memory.
@@ -436,8 +434,7 @@
             _ (when-not confirmed? (throw (file-upload-error "Upload confirmation returned false")))]
         nil)
 
-      (catch Exception e
-        e))))
+      (catch Exception e e))))
 
 (defn download-stream
   "Download a file from EYWA and return an InputStream for streaming.
@@ -487,8 +484,7 @@
         {:stream (:stream stream-result)
          :content-length (:content-length stream-result)})
 
-      (catch Exception e
-        e))))
+      (catch Exception e e))))
 
 (defn download
   "Download a file from EYWA file service (convenience function for small files).
@@ -562,18 +558,39 @@
   "List files in EYWA file service.
   
   Args:
-    options - Map of filter options:
+    filters - Map of filter options:
       :limit - Maximum number of files to return
       :status - Filter by status (PENDING, UPLOADED, etc.)
-      :name-pattern - Filter by name pattern (SQL LIKE)
-      :folder-uuid - Filter by folder UUID
+      :name - Filter by name pattern (SQL LIKE)
+      :folder - Folder filter as map:
+        {:euuid ...} - Filter by folder UUID
+        {:path ...} - Filter by folder path
   
   Returns:
-    Core.async channel that will contain list of file maps or exception"
-  [& {:keys [limit status name-pattern folder-uuid]}]
+    Core.async channel that will contain list of file maps or exception
+    
+  Examples:
+    ;; List all files
+    (<! (list {}))
+    
+    ;; List files with name pattern
+    (<! (list {:name \"test\"}))
+    
+    ;; List files by folder UUID
+    (<! (list {:folder {:euuid folder-uuid}}))
+    
+    ;; List files by folder path
+    (<! (list {:folder {:path \"/documents\"}}))
+    
+    ;; List files with status filter
+    (<! (list {:status \"UPLOADED\"}))
+    
+    ;; Combined filters
+    (<! (list {:limit 10 :name \"test\" :folder {:euuid folder-uuid}}))"
+  [filters]
   (go
     (try
-      (let [query "query ListFiles($limit: Int, $where: FileWhereInput) {
+      (let [query "query ListFiles($limit: Int, $where: searchFileOperator) {
                      searchFile(_limit: $limit, _where: $where, _order_by: {uploaded_at: desc}) {
                        euuid
                        name
@@ -591,13 +608,32 @@
                      }
                    }"
 
+            folder-filter (get filters :folder)
+
             where-conditions (cond-> []
-                               status (conj {:status {:_eq status}})
-                               name-pattern (conj {:name {:_ilike (str "%" name-pattern "%")}})
-                               folder-uuid (conj {:folder {:euuid {:_eq folder-uuid}}}))
+                               (:status filters)
+                               (conj {:status {:_eq (:status filters)}})
+
+                               (:name filters)
+                               (conj {:name {:_ilike (str "%" (:name filters) "%")}})
+
+                               ;; Handle folder filter
+                               folder-filter
+                               (conj (cond
+                                       ;; Folder by UUID
+                                       (:euuid folder-filter)
+                                       {:folder {:euuid {:_eq (:euuid folder-filter)}}}
+
+                                       ;; Folder by path
+                                       (:path folder-filter)
+                                       {:folder {:path {:_eq (:path folder-filter)}}}
+
+                                       :else
+                                       (throw (ex-info "Invalid folder filter - must be {:euuid ...} or {:path ...}"
+                                                       {:folder folder-filter})))))
 
             variables (cond-> {}
-                        limit (assoc :limit limit)
+                        (:limit filters) (assoc :limit (:limit filters))
                         (seq where-conditions) (assoc :where
                                                  (if (= 1 (count where-conditions))
                                                    (first where-conditions)
@@ -622,7 +658,10 @@
     file-uuid - UUID of the file
   
   Returns:
-    Core.async channel that will contain file information map or nil if not found"
+    Core.async channel containing:
+    - File information map if found
+    - nil if file not found (valid case)
+    - Exception if error occurred (GraphQL failure, network error, etc.)"
   [file-uuid]
   (go
     (try
@@ -647,11 +686,11 @@
             {:keys [error]
              :as result} (<! (client/graphql query {:uuid file-uuid}))]
 
-        (when-not error
+        (if error
+          (ex-info (str "Failed to get file info: " error) {:error error})
           (get-in result [:data :getFile])))
 
-      (catch Exception e
-        nil))))
+      (catch Exception e e))))
 
 (defn delete
   "Delete a file from EYWA file service.
@@ -676,8 +715,7 @@
             success? (get-in result [:data :deleteFile])]
         success?)
 
-      (catch Exception e
-        false))))
+      (catch Exception e e))))
 
 (defn hash
   "Calculate hash of a file for integrity verification.
@@ -751,21 +789,43 @@
   "List folders in EYWA file service.
   
   Args:
-    options - Map of filter options:
+    filters - Map of filter options:
       :limit - Maximum number of folders to return
-      :name-pattern - Filter by name pattern (SQL LIKE)
-      :parent-folder-uuid - Filter by parent folder UUID (nil for root folders)
+      :name - Filter by name pattern (SQL LIKE)
+      :parent - Parent folder filter as map:
+        {:euuid ...} - Filter by parent UUID
+        {:path ...} - Filter by parent path
+        nil or missing - Filter for root folders only
   
   Returns:
-    Core.async channel containing list of folder maps or exception"
-  [& {:keys [limit name-pattern parent-folder-uuid]}]
+    Core.async channel containing list of folder maps or exception
+    
+  Examples:
+    ;; List all folders
+    (<! (list-folders {}))
+    
+    ;; List root folders only
+    (<! (list-folders {:parent nil}))
+    
+    ;; List folders with name pattern
+    (<! (list-folders {:name \"test\"}))
+    
+    ;; List folders by parent UUID
+    (<! (list-folders {:parent {:euuid parent-uuid}}))
+    
+    ;; List folders by parent path
+    (<! (list-folders {:parent {:path \"/documents\"}}))
+    
+    ;; Combined filters
+    (<! (list-folders {:limit 10 :name \"test\" :parent {:euuid parent-uuid}}))"
+  [filters]
   (go
     (try
-      (let [query "query ListFolders($limit: Int, $where: FolderWhereInput) {
+      (let [query "query ListFolders($limit: Int, $where: searchFolderOperator) {
                      searchFolder(_limit: $limit, _where: $where, _order_by: {name: asc}) {
                        euuid
                        name
-                       created_at
+                       modified_on
                        parent {
                          euuid
                          name
@@ -773,15 +833,33 @@
                      }
                    }"
 
+            parent-filter (get filters :parent ::not-provided)
+
             where-conditions (cond-> []
-                               name-pattern (conj {:name {:_ilike (str "%" name-pattern "%")}})
-                               (some? parent-folder-uuid)
-                               (conj (if parent-folder-uuid
-                                       {:parent {:euuid {:_eq parent-folder-uuid}}}
-                                       {:parent {:_is_null true}})))
+                               (:name filters)
+                               (conj {:name {:_ilike (str "%" (:name filters) "%")}})
+
+                               ;; Handle parent filter
+                               (not= parent-filter ::not-provided)
+                               (conj (cond
+                                       ;; nil means root folders only
+                                       (nil? parent-filter)
+                                       {:parent {:_is_null true}}
+
+                                       ;; Parent by UUID
+                                       (:euuid parent-filter)
+                                       {:parent {:euuid {:_eq (:euuid parent-filter)}}}
+
+                                       ;; Parent by path
+                                       (:path parent-filter)
+                                       {:parent {:path {:_eq (:path parent-filter)}}}
+
+                                       :else
+                                       (throw (ex-info "Invalid parent filter - must be nil, {:euuid ...}, or {:path ...}"
+                                                       {:parent parent-filter})))))
 
             variables (cond-> {}
-                        limit (assoc :limit limit)
+                        (:limit filters) (assoc :limit (:limit filters))
                         (seq where-conditions) (assoc :where
                                                  (if (= 1 (count where-conditions))
                                                    (first where-conditions)
@@ -796,40 +874,58 @@
 
         folders)
 
-      (catch Exception e
-        e))))
+      (catch Exception e e))))
 
 (defn get-folder-info
   "Get information about a specific folder.
   
   Args:
-    folder-uuid - UUID of the folder
+    data - Map containing either :euuid or :path
   
   Returns:
-    Core.async channel containing folder information map or nil if not found"
-  [folder-uuid]
+    Core.async channel containing:
+    - Folder information map if found
+    - nil if folder not found (valid case)
+    - Exception if error occurred (GraphQL failure, network error, etc.)"
+  [data]
   (go
     (try
-      (let [query "query GetFolder($uuid: UUID!) {
-                     getFolder(euuid: $uuid) {
-                       euuid
-                       name
-                       created_at
-                       parent {
+      (let [query (if (contains? data :euuid)
+                    "query GetFolder($euuid: UUID!) {
+                       getFolder(euuid: $euuid) {
                          euuid
                          name
+                         modified_on
+                         parent {
+                           euuid
+                           name
+                         }
                        }
-                     }
-                   }"
+                     }"
+                    "query GetFolder($path: String!) {
+                       getFolder(path: $path) {
+                         euuid
+                         name
+                         modified_on
+                         parent {
+                           euuid
+                           name
+                         }
+                       }
+                     }")
 
             {:keys [error]
-             :as result} (<! (client/graphql query {:uuid folder-uuid}))]
+             :as result} (<! (client/graphql query data))]
 
-        (when-not error
+        (if error
+          (ex-info
+            "GraphQL query failed!"
+            {:query query
+             :variables data
+             :error error})
           (get-in result [:data :getFolder])))
 
-      (catch Exception e
-        nil))))
+      (catch Exception e e))))
 
 (defn delete-folder
   "Delete a folder from EYWA file service.
@@ -856,11 +952,21 @@
             success? (get-in result [:data :deleteFolder])]
         success?)
 
-      (catch Exception e
-        false))))
+      (catch Exception e e))))
 
 (comment
   (client/open-pipe)
+
+  (async/go
+    (println
+      (async/<!
+        (get-folder-info
+          {:path "/"}))))
+  (async/go
+    (println
+      (async/<!
+        (get-folder-info
+          {:euuid root-euuid}))))
   (async/go
     (def result
       (async/<!

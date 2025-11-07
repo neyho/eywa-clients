@@ -123,3 +123,28 @@ public class FileDownloadException : Exception
     {
     }
 }
+
+/// <summary>
+/// Exception thrown when a folder operation fails.
+/// </summary>
+public class FolderOperationException : Exception
+{
+    /// <summary>
+    /// Initializes a new instance of the <see cref="FolderOperationException"/> class.
+    /// </summary>
+    /// <param name="message">The error message.</param>
+    public FolderOperationException(string message)
+        : base(message)
+    {
+    }
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="FolderOperationException"/> class.
+    /// </summary>
+    /// <param name="message">The error message.</param>
+    /// <param name="innerException">The inner exception.</param>
+    public FolderOperationException(string message, Exception innerException)
+        : base(message, innerException)
+    {
+    }
+}

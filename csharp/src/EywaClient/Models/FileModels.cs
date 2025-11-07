@@ -81,32 +81,69 @@ public class FolderInfo
 }
 
 /// <summary>
-/// Options for uploading files.
+/// Input for file upload operations matching EYWA's FileInput GraphQL type.
+/// IMPORTANT: You must provide euuid for deduplication.
+/// If you upload the same file twice with the same euuid, EYWA will update it.
+/// If you don't provide euuid, EYWA will create a new file each time.
 /// </summary>
-public class UploadOptions
+public class FileInput
 {
     /// <summary>
-    /// The file name. Required if eywaPath is null (orphan file).
+    /// The file name (required).
     /// </summary>
-    public string? FileName { get; set; }
+    [JsonPropertyName("name")]
+    public string Name { get; set; } = string.Empty;
 
     /// <summary>
-    /// The stream size in bytes. Required for non-seekable streams.
-    /// Auto-detected for seekable streams (e.g., FileStream).
+    /// The file UUID (required for proper deduplication).
+    /// Generate with Guid.NewGuid() for new files.
+    /// Use existing UUID to update a file.
     /// </summary>
-    public long? Size { get; set; }
+    [JsonPropertyName("euuid")]
+    public Guid Euuid { get; set; }
 
     /// <summary>
-    /// The MIME content type. Auto-detected from path/filename if not provided.
+    /// The file size in bytes (required).
     /// </summary>
+    [JsonPropertyName("size")]
+    public long Size { get; set; }
+
+    /// <summary>
+    /// The MIME content type (optional, will be auto-detected if not provided).
+    /// </summary>
+    [JsonPropertyName("content_type")]
     public string? ContentType { get; set; }
 
     /// <summary>
-    /// Whether to automatically create missing folders in the path.
-    /// Default is true.
+    /// The parent folder reference (optional).
+    /// Must provide folder's euuid if specified.
     /// </summary>
-    public bool CreateFolders { get; set; } = true;
+    [JsonPropertyName("folder")]
+    public FolderReference? Folder { get; set; }
+}
 
+/// <summary>
+/// Reference to a folder by UUID.
+/// </summary>
+public class FolderReference
+{
+    /// <summary>
+    /// The folder UUID.
+    /// </summary>
+    [JsonPropertyName("euuid")]
+    public Guid Euuid { get; set; }
+
+    public FolderReference(Guid euuid)
+    {
+        Euuid = euuid;
+    }
+}
+
+/// <summary>
+/// Options for file upload operations.
+/// </summary>
+public class UploadOptions
+{
     /// <summary>
     /// Optional callback for progress tracking during upload.
     /// Parameters: (bytesUploaded, totalBytes)
@@ -115,7 +152,7 @@ public class UploadOptions
 }
 
 /// <summary>
-/// Options for downloading files.
+/// Options for file download operations.
 /// </summary>
 public class DownloadOptions
 {

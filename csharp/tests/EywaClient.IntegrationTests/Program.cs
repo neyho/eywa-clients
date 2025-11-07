@@ -5,15 +5,27 @@ using EywaClient.Models;
 namespace EywaClient.IntegrationTests;
 
 /// <summary>
-/// Integration tests that run in real EYWA environment.
-/// Run via: eywa run -c "dotnet run --project tests/EywaClient.IntegrationTests"
+/// Integration test runner - chooses which tests to run based on arguments.
+/// 
+/// Usage:
+///   eywa run -c "dotnet run --project tests/EywaClient.IntegrationTests"
+///   eywa run -c "dotnet run --project tests/EywaClient.IntegrationTests -- files"
 /// </summary>
 class Program
 {
     static async Task<int> Main(string[] args)
     {
-        Console.WriteLine("=== EYWA C# Client - Integration Tests ===");
-        Console.WriteLine("Running in real EYWA environment via stdin/stdout\n");
+        // Check if user wants file operations tests
+        if (args.Length > 0 && args[0] == "files")
+        {
+            Console.WriteLine("Running FILE OPERATIONS integration tests...\n");
+            return await FileOperationsIntegrationTest.RunAsync(args.Skip(1).ToArray());
+        }
+
+        // Default: Run core functionality tests
+        Console.WriteLine("=== EYWA C# Client - Core Integration Tests ===");
+        Console.WriteLine("Running in real EYWA environment via stdin/stdout");
+        Console.WriteLine("Tip: Run with 'files' argument for file operations tests\n");
 
         var testsPassed = 0;
         var testsFailed = 0;
@@ -63,7 +75,7 @@ class Program
             Console.WriteLine("\nTEST 2: Update Task Status");
             try
             {
-                taskManager.UpdateTask(EywaClient.Models.TaskStatus.Processing);
+                taskManager.UpdateTask(TaskStatus.Processing);
                 Console.WriteLine("  ✓ UpdateTask(Processing) succeeded");
                 testsPassed++;
             }
@@ -219,7 +231,7 @@ class Program
                     totalTests = testsPassed + testsFailed
                 });
                 
-                taskManager.CloseTask(EywaClient.Models.TaskStatus.Success);
+                taskManager.CloseTask(TaskStatus.Success);
                 return 0;
             }
             else
@@ -232,7 +244,7 @@ class Program
                     totalTests = testsPassed + testsFailed
                 });
                 
-                taskManager.CloseTask(EywaClient.Models.TaskStatus.Error);
+                taskManager.CloseTask(TaskStatus.Error);
                 return 1;
             }
         }

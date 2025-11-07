@@ -1,129 +1,95 @@
+using System;
+
 namespace EywaClient.Utilities;
 
 /// <summary>
-/// Utility for parsing EYWA file paths.
+/// Parses EYWA file paths into folder and file components.
+/// EYWA paths follow the format: /folder1/folder2/filename.ext
 /// </summary>
 public static class PathParser
 {
     /// <summary>
-    /// Parses an EYWA path into folder path and file name components.
+    /// Parse an EYWA path into folder path and filename.
     /// </summary>
-    /// <param name="eywaPath">The EYWA path to parse (e.g., "/documents/2024/report.pdf").</param>
-    /// <returns>A tuple containing (folderPath, fileName).</returns>
+    /// <param name="eywaPath">EYWA path (e.g., "/documents/2024/report.pdf")</param>
+    /// <returns>Tuple of (folderPath, fileName)</returns>
+    /// <exception cref="ArgumentNullException">Thrown when eywaPath is null or empty</exception>
     /// <example>
     /// <code>
     /// var (folder, file) = PathParser.Parse("/documents/2024/report.pdf");
-    /// // folder = "/documents/2024/", file = "report.pdf"
+    /// // folder = "/documents/2024/"
+    /// // file = "report.pdf"
     /// 
-    /// var (folder2, file2) = PathParser.Parse("/file.txt");
-    /// // folder2 = "/", file2 = "file.txt"
-    /// 
-    /// var (folder3, file3) = PathParser.Parse("file.txt");
-    /// // folder3 = null, file3 = "file.txt"
+    /// var (folder2, file2) = PathParser.Parse("file.txt");
+    /// // folder2 = ""
+    /// // file2 = "file.txt"
     /// </code>
     /// </example>
-    public static (string? folderPath, string fileName) Parse(string? eywaPath)
+    public static (string folderPath, string fileName) Parse(string eywaPath)
     {
-        // Handle null or paths without '/'
-        if (string.IsNullOrEmpty(eywaPath) || !eywaPath.Contains('/'))
+        if (string.IsNullOrWhiteSpace(eywaPath))
+            throw new ArgumentNullException(nameof(eywaPath), "EYWA path cannot be null or empty");
+
+        // Normalize path separators to forward slashes
+        eywaPath = eywaPath.Replace('\\', '/');
+
+        // Handle root-level files (no folder path)
+        if (!eywaPath.Contains('/'))
         {
-            return (null, eywaPath ?? string.Empty);
+            return ("", eywaPath);
         }
 
-        // Normalize path to start with '/'
-        var normalized = eywaPath.StartsWith('/') ? eywaPath : '/' + eywaPath;
-
-        // Find last slash
-        var lastSlash = normalized.LastIndexOf('/');
-
-        if (lastSlash == 0)
+        // Handle paths ending with / (folder only, no file)
+        if (eywaPath.EndsWith('/'))
         {
-            // ROOT level: '/file.txt'
-            return ("/", normalized.Substring(1));
+            return (eywaPath, "");
         }
 
-        // Extract folder and file
-        var folderPath = normalized.Substring(0, lastSlash + 1);
-        var fileName = normalized.Substring(lastSlash + 1);
+        // Split into folder and file
+        var lastSlashIndex = eywaPath.LastIndexOf('/');
+        var folderPath = eywaPath.Substring(0, lastSlashIndex + 1); // Include trailing /
+        var fileName = eywaPath.Substring(lastSlashIndex + 1);
 
         return (folderPath, fileName);
     }
 
     /// <summary>
-    /// Splits a folder path into individual path segments.
+    /// Split a folder path into individual folder segments.
     /// </summary>
-    /// <param name="folderPath">The folder path (e.g., "/documents/2024/Q1/").</param>
-    /// <returns>List of path segments in order.</returns>
+    /// <param name="folderPath">Folder path (e.g., "/documents/2024/")</param>
+    /// <returns>Array of folder names (e.g., ["documents", "2024"])</returns>
     /// <example>
     /// <code>
-    /// var segments = PathParser.GetSegments("/documents/2024/Q1/");
-    /// // Returns: ["documents", "2024", "Q1"]
+    /// var segments = PathParser.SplitFolderPath("/documents/2024/");
+    /// // segments = ["documents", "2024"]
     /// </code>
     /// </example>
-    public static List<string> GetSegments(string folderPath)
+    public static string[] SplitFolderPath(string folderPath)
     {
-        if (string.IsNullOrEmpty(folderPath) || folderPath == "/")
-            return new List<string>();
+        if (string.IsNullOrWhiteSpace(folderPath))
+            return Array.Empty<string>();
 
         return folderPath
-            .Split('/', StringSplitOptions.RemoveEmptyEntries)
-            .ToList();
+            .Trim('/')
+            .Split('/', StringSplitOptions.RemoveEmptyEntries);
     }
 
     /// <summary>
-    /// Builds a list of all parent paths for a given folder path.
+    /// Join folder segments into a complete folder path.
     /// </summary>
-    /// <param name="folderPath">The target folder path.</param>
-    /// <returns>List of paths from root to target.</returns>
+    /// <param name="segments">Folder segments</param>
+    /// <returns>Complete folder path with leading and trailing slashes</returns>
     /// <example>
     /// <code>
-    /// var paths = PathParser.GetHierarchy("/documents/2024/Q1/");
-    /// // Returns: ["/documents/", "/documents/2024/", "/documents/2024/Q1/"]
+    /// var path = PathParser.JoinFolderPath("documents", "2024");
+    /// // path = "/documents/2024/"
     /// </code>
     /// </example>
-    public static List<string> GetHierarchy(string folderPath)
+    public static string JoinFolderPath(params string[] segments)
     {
-        var segments = GetSegments(folderPath);
-        var paths = new List<string>();
-        var current = "/";
-
-        foreach (var segment in segments)
-        {
-            current += segment + "/";
-            paths.Add(current);
-        }
-
-        return paths;
-    }
-
-    /// <summary>
-    /// Validates that a path is a valid folder path (ends with '/').
-    /// </summary>
-    /// <param name="folderPath">The path to validate.</param>
-    /// <returns>True if valid folder path.</returns>
-    public static bool IsValidFolderPath(string? folderPath)
-    {
-        return !string.IsNullOrEmpty(folderPath) && folderPath.EndsWith('/');
-    }
-
-    /// <summary>
-    /// Normalizes a folder path to ensure it starts and ends with '/'.
-    /// </summary>
-    /// <param name="folderPath">The path to normalize.</param>
-    /// <returns>Normalized folder path.</returns>
-    public static string NormalizeFolderPath(string folderPath)
-    {
-        if (string.IsNullOrEmpty(folderPath))
+        if (segments == null || segments.Length == 0)
             return "/";
 
-        var normalized = folderPath;
-
-        if (!normalized.StartsWith('/'))
-            normalized = '/' + normalized;
-
-        if (!normalized.EndsWith('/'))
-            normalized += '/';
-
-        return normalized;
+        return "/" + string.Join("/", segments) + "/";
     }
 }
