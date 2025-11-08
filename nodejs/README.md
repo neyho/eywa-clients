@@ -3,7 +3,7 @@
 [![npm version](https://badge.fury.io/js/eywa-client.svg)](https://badge.fury.io/js/eywa-client)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-Complete EYWA client library for Node.js providing JSON-RPC communication, GraphQL queries, stream-based file operations, and task management for EYWA robots.
+**GraphQL-aligned EYWA client library for Node.js** following the Babashka pattern. Provides JSON-RPC communication, GraphQL queries, and stream-based file operations with client-controlled UUID management.
 
 ## Installation
 
@@ -11,14 +11,25 @@ Complete EYWA client library for Node.js providing JSON-RPC communication, Graph
 npm install eywa-client
 ```
 
-## Features
+## 🎯 Key Features
 
-- 🚀 **JSON-RPC Communication** - Bidirectional communication with EYWA runtime
-- 📊 **GraphQL Integration** - Execute queries and mutations against EYWA datasets
-- 📁 **File Operations** - Stream-based upload/download with folder management
+- 🚀 **GraphQL-Aligned API** - Single map arguments that directly mirror GraphQL schema
+- 🔧 **Client-Controlled UUIDs** - Full control over file and folder UUIDs for deterministic operations
+- 📁 **Stream-Based File Operations** - Memory-efficient upload/download with progress tracking
+- 📊 **JSON-RPC Communication** - Bidirectional communication with EYWA runtime
+- 📋 **Task Management** - Update status, report progress, handle task lifecycle
 - 📝 **Comprehensive Logging** - Multiple log levels with metadata support
-- 🔄 **Task Management** - Update status, report progress, handle task lifecycle
-- ⚡ **Async/Promise Based** - Modern async/await support
+- ⚡ **Modern Async/Await** - Promise-based API throughout
+
+## 🏗️ Architecture Philosophy
+
+This client follows the **Babashka pattern** for maximum GraphQL compatibility:
+
+- ✅ **Direct GraphQL Mapping** - Function arguments directly mirror GraphQL input types
+- ✅ **No Parameter Mangling** - Data flows directly to GraphQL without transformation
+- ✅ **Single Map Arguments** - All functions use single object parameters
+- ✅ **Client UUID Control** - UUIDs are always client-managed for both creation and updates
+- ✅ **No Sugar Wrapping** - Direct GraphQL calls without abstraction layers
 
 ## Quick Start
 
@@ -30,7 +41,7 @@ import eywa from 'eywa-client'
 // Initialize the client
 eywa.open_pipe()
 
-// Log messages
+// Log messages  
 eywa.info('Robot started')
 
 // Execute GraphQL queries
@@ -47,436 +58,414 @@ const result = await eywa.graphql(`
 eywa.close_task(eywa.SUCCESS)
 ```
 
-### File Operations
+## 📁 File Operations
+
+### GraphQL-Aligned File Upload
 
 ```javascript
-import eywa from 'eywa-client'
-import { createReadStream } from 'fs'
-import { Readable } from 'stream'
+import { randomUUID } from 'crypto'
 
-eywa.open_pipe()
-
-// Upload file from filesystem
-const fileStream = createReadStream('/local/document.pdf')
-const file = await eywa.uploadFile(fileStream, '/documents/2024/document.pdf')
-console.log('Uploaded:', file.euuid)
-
-// Upload from memory
-const data = Buffer.from(JSON.stringify({ status: 'active' }))
-const memStream = Readable.from(data)
-await eywa.uploadFile(memStream, '/config/settings.json', {
-  size: data.length
+// Upload new file with client-generated UUID
+const fileUuid = randomUUID()
+await eywa.upload('document.pdf', {
+  name: 'document.pdf',
+  euuid: fileUuid,                    // Client controls UUID
+  folder: { euuid: folderUuid },      // Direct GraphQL reference
+  content_type: 'application/pdf'     // Explicit MIME type
 })
 
-// Download file
-const downloadStream = await eywa.downloadFile(file.euuid)
-downloadStream.pipe(fs.createWriteStream('/local/downloaded.pdf'))
-
-// Create folders
-await eywa.createFolder('/documents/2024/reports/')
-
-// Delete files and folders
-await eywa.deleteFile(fileUuid)
-await eywa.deleteFolder('/documents/2024/reports/')
+// Replace existing file (same UUID = update)
+await eywa.uploadContent('Updated content', {
+  name: 'document.txt',
+  euuid: fileUuid,                    // Same UUID = replace existing
+  content_type: 'text/plain'
+})
 ```
 
-## API Reference
-
-### Initialization
-
-#### `open_pipe()`
-Initialize stdin/stdout communication with EYWA runtime. Must be called before using other functions.
-
-### File Operations
-
-#### `uploadFile(stream, eywaPath, options)`
-Upload a stream to EYWA file service.
-
-**Parameters:**
-- `stream` (ReadableStream) - Source stream to upload
-- `eywaPath` (string|null) - Target path (e.g., `/documents/file.pdf`) or `null` for orphan files
-- `options` (Object)
-  - `fileName` (string) - Required if eywaPath is null
-  - `size` (number) - Stream size in bytes (auto-detected for file streams)
-  - `contentType` (string) - MIME type (auto-detected from path/filename)
-  - `createFolders` (boolean) - Auto-create missing folders (default: true)
-  - `progressCallback` (function) - Progress callback `(uploaded, total) => {}`
-
-**Returns:** Promise<Object> - File object with `euuid`, `name`, `content_type`, `size`, `status`
-
-**Examples:**
+### Upload from Different Sources
 
 ```javascript
-// From filesystem
-import { createReadStream } from 'fs'
-const stream = createReadStream('/local/file.pdf')
-const file = await eywa.uploadFile(stream, '/documents/file.pdf')
-
-// From memory (requires size)
-import { Readable } from 'stream'
-const data = Buffer.from('Hello, EYWA!')
-const stream = Readable.from(data)
-await eywa.uploadFile(stream, '/notes/hello.txt', { size: data.length })
-
-// Orphan file (no folder)
-await eywa.uploadFile(stream, null, {
-  fileName: 'temp.txt',
-  size: 100
+// Upload file from disk
+await eywa.upload('/path/to/file.txt', {
+  name: 'file.txt',
+  euuid: randomUUID(),
+  folder: { euuid: folderUuid }
 })
 
-// With progress tracking
-await eywa.uploadFile(stream, '/uploads/large.iso', {
-  progressCallback: (uploaded, total) => {
-    console.log(`${(uploaded/total*100).toFixed(1)}%`)
+// Upload from memory/string
+await eywa.uploadContent('Hello EYWA!', {
+  name: 'greeting.txt', 
+  euuid: randomUUID(),
+  content_type: 'text/plain'
+})
+
+// Upload from stream with progress
+await eywa.uploadStream(readableStream, {
+  name: 'data.bin',
+  euuid: randomUUID(), 
+  size: streamSize,                   // Required for streams
+  progressFn: (uploaded, total) => {
+    console.log(`Progress: ${(uploaded/total*100).toFixed(1)}%`)
   }
 })
 ```
 
-#### `downloadFile(fileUuid, options)`
-Download a file as a stream.
-
-**Parameters:**
-- `fileUuid` (string) - UUID of file to download
-- `options` (Object)
-  - `progressCallback` (function) - Progress callback `(downloaded, total) => {}`
-
-**Returns:** Promise<ReadableStream> - Download stream
-
-**Examples:**
+### Download Files
 
 ```javascript
-// Download to file
-import { createWriteStream } from 'fs'
-import { pipeline } from 'stream/promises'
+// Download as Buffer
+const content = await eywa.download(fileUuid)
+console.log(content.toString()) 
 
-const stream = await eywa.downloadFile(fileUuid)
-await pipeline(stream, createWriteStream('/local/file.pdf'))
-
-// Download to memory
-const chunks = []
+// Download as stream (memory efficient)
+const { stream, contentLength } = await eywa.downloadStream(fileUuid)
 for await (const chunk of stream) {
-  chunks.push(chunk)
+  process.stdout.write(chunk)
 }
-const content = Buffer.concat(chunks).toString('utf-8')
 ```
 
-#### `createFolder(folderPath)`
-Create nested folder hierarchy.
-
-**Parameters:**
-- `folderPath` (string) - Folder path (must end with `/`)
-
-**Returns:** Promise<Object> - Folder object
-
-**Example:**
+### File Management
 
 ```javascript
-// Creates all missing folders in path
-await eywa.createFolder('/documents/2024/Q1/reports/')
+// Get file information
+const fileInfo = await eywa.fileInfo(fileUuid)
+console.log(`File: ${fileInfo.name} (${fileInfo.size} bytes)`)
+
+// List files with filters
+const files = await eywa.list({
+  folder: { euuid: folderUuid },      // Filter by folder UUID
+  name: 'report',                     // Filter by name pattern
+  limit: 10                           // Limit results
+})
+
+// Delete file
+await eywa.deleteFile(fileUuid)
 ```
 
-#### `deleteFolder(folderPath)`
-Delete a folder.
+## 📂 Folder Operations
 
-**Parameters:**
-- `folderPath` (string) - Folder path to delete
-
-**Returns:** Promise<boolean>
-
-**Example:**
+### Create Folder Hierarchy
 
 ```javascript
-await eywa.deleteFolder('/documents/2024/Q1/')
-```
+// Create root folder
+const rootFolderId = randomUUID()
+await eywa.createFolder({
+  name: 'project-documents',
+  euuid: rootFolderId,
+  parent: { euuid: eywa.rootUuid }    // Under system root
+})
 
-#### `deleteFile(fileUuid)`
-Delete a file.
-
-**Parameters:**
-- `fileUuid` (string) - UUID of file to delete
-
-**Returns:** Promise<boolean>
-
-**Example:**
-
-```javascript
-await eywa.deleteFile('abc-123-...')
-```
-
-### GraphQL
-
-#### `graphql(query, variables?)`
-Execute GraphQL queries and mutations.
-
-**For file queries, use GraphQL directly instead of wrapper functions.** This gives you full control over the query structure and access to all GraphQL features.
-
-**Examples:**
-
-```javascript
-// Search files
-const result = await eywa.graphql(`
-  query {
-    searchFile(_where: { name: { _ilike: "%report%" } }) {
-      euuid
-      name
-      size
-      uploaded_at
-    }
-  }
-`)
-
-// List files in folder
-const folder = await eywa.graphql(`
-  query {
-    getFolder(path: "/documents/") { euuid }
-  }
-`)
-
-const files = await eywa.graphql(`
-  query {
-    searchFile(_where: { 
-      folder: { euuid: { _eq: "${folder.data.getFolder.euuid}" } }
-    }) {
-      euuid
-      name
-    }
-  }
-`)
-
-// Get file info
-const fileInfo = await eywa.graphql(`
-  query {
-    getFile(euuid: "${fileUuid}") {
-      euuid
-      name
-      content_type
-      size
-      status
-      uploaded_at
-      folder {
-        path
-      }
-    }
-  }
-`)
-
-// Complex query with filters
-const result = await eywa.graphql(`
-  query {
-    searchFile(
-      _where: {
-        _and: [
-          { uploaded_at: { _gte: "2024-01-01" } }
-          { size: { _gt: 1048576 } }
-          { status: { _eq: "UPLOADED" } }
-        ]
-      }
-      _order_by: { uploaded_at: desc }
-      _limit: 10
-    ) {
-      euuid
-      name
-      size
-    }
-  }
-`)
-```
-
-### Logging Functions
-
-#### `log(record)`
-Log with full control over all parameters.
-
-```javascript
-eywa.log({
-  event: 'INFO',
-  message: 'Processing item',
-  data: { itemId: 123 },
-  duration: 1500
+// Create nested folder
+const subFolderId = randomUUID() 
+await eywa.createFolder({
+  name: 'reports',
+  euuid: subFolderId,
+  parent: { euuid: rootFolderId }     // Under project folder
 })
 ```
 
-#### Convenience Methods
-
-`info(message, data?)`, `error(message, data?)`, `warn(message, data?)`, `debug(message, data?)`, `trace(message, data?)`, `exception(message, data?)`
+### Folder Management
 
 ```javascript
-eywa.info('User logged in', { userId: 'abc123' })
-eywa.error('Failed to process', { error: err.message })
+// Get folder information
+const folderInfo = await eywa.getFolderInfo({ euuid: folderId })
+console.log(`Folder: ${folderInfo.path}`)
+
+// List folders
+const folders = await eywa.listFolders({
+  parent: { euuid: parentId },        // Filter by parent
+  name: 'test',                       // Filter by name pattern
+  limit: 5
+})
+
+// Delete empty folder
+await eywa.deleteFolder(folderId)
 ```
 
-### Task Management
+## 🔄 UUID Management Patterns
 
-#### `get_task()`
-Get current task information.
+### Deterministic Testing
 
 ```javascript
-const task = await eywa.get_task()
-console.log('Processing:', task.message)
+// Pre-generate UUIDs for guaranteed cleanup
+const testData = {
+  folders: {
+    demo: { 
+      euuid: 'c7f49a8c-4b0e-4d5a-9f3a-7e8b2c1d0e9f',
+      name: 'demo-files',
+      parent: { euuid: eywa.rootUuid }
+    }
+  },
+  files: {
+    sample: {
+      euuid: '11111111-2222-3333-4444-555555555555',
+      name: 'sample.txt',
+      folder: { euuid: 'c7f49a8c-4b0e-4d5a-9f3a-7e8b2c1d0e9f' }
+    }
+  }
+}
+
+// Use in operations
+await eywa.createFolder(testData.folders.demo)
+await eywa.uploadContent('Test content', testData.files.sample)
 ```
 
-#### `update_task(status?)`
-Update task status.
+### File Updates and Deduplication
 
 ```javascript
+const documentId = randomUUID()
+
+// Initial upload
+await eywa.uploadContent('Version 1', {
+  name: 'document.txt',
+  euuid: documentId,                  // Client-provided UUID
+  folder: { euuid: folderId }
+})
+
+// Update same file (same UUID = replace)
+await eywa.uploadContent('Version 2', {
+  name: 'document.txt',
+  euuid: documentId,                  // Same UUID = update existing
+  folder: { euuid: folderId }
+})
+
+// Check deduplication worked
+const info = await eywa.fileInfo(documentId)
+console.log('Same UUID after update:', info.euuid === documentId) // true
+```
+
+## 📊 GraphQL Integration
+
+### Direct Query Execution
+
+```javascript
+// Simple query
+const users = await eywa.graphql(`
+  query GetUsers($limit: Int!) {
+    searchUser(_limit: $limit) {
+      euuid
+      name
+      email
+    }
+  }
+`, { limit: 10 })
+
+// File operations using GraphQL directly
+const result = await eywa.graphql(`
+  mutation CreateFile($file: FileInput!) {
+    requestUploadURL(file: $file)
+  }
+`, {
+  file: {
+    name: 'document.pdf',
+    euuid: randomUUID(),
+    folder: { euuid: folderUuid },
+    content_type: 'application/pdf',
+    size: 12345
+  }
+})
+```
+
+## 🔧 Task Management
+
+```javascript
+// Update task status
 eywa.update_task(eywa.PROCESSING)
-```
 
-#### `close_task(status?)`
-Close task and exit process.
+// Log progress with data
+eywa.info('Processing file', { filename: 'data.csv', rows: 150 })
 
-```javascript
+// Report results
+eywa.report('Analysis complete', {
+  processed: 150,
+  errors: 0,
+  duration: '2.3s'
+})
+
+// Complete successfully
 eywa.close_task(eywa.SUCCESS)
 ```
 
-#### `return_task()`
-Return control without closing task.
-
-#### `report(message, data?, image?)`
-Send task report.
+## 🚨 Error Handling
 
 ```javascript
-eywa.report('Analysis complete', {
-  accuracy: 0.95,
-  processed: 1000
+try {
+  await eywa.upload('/nonexistent/file.txt', {
+    name: 'file.txt',
+    euuid: randomUUID()
+  })
+} catch (error) {
+  if (error instanceof eywa.FileUploadError) {
+    eywa.error('Upload failed', { 
+      message: error.message,
+      code: error.code 
+    })
+  }
+}
+```
+
+## 📈 Advanced Usage
+
+### Progress Tracking
+
+```javascript
+let lastPercent = 0
+await eywa.uploadStream(largeFileStream, {
+  name: 'large-file.zip',
+  euuid: randomUUID(),
+  size: fileSize,
+  progressFn: (uploaded, total) => {
+    const percent = Math.round((uploaded / total) * 100)
+    if (percent !== lastPercent && percent % 10 === 0) {
+      eywa.info(`Upload progress: ${percent}%`)
+      lastPercent = percent
+    }
+  }
 })
 ```
 
-### JSON-RPC
+### Concurrent Operations
 
-#### `send_request(data)`
-Send JSON-RPC request and wait for response.
+```javascript
+// Upload multiple files concurrently
+const uploads = files.map(file => 
+  eywa.upload(file.path, {
+    name: file.name,
+    euuid: randomUUID(),
+    folder: { euuid: targetFolder }
+  })
+)
 
-#### `send_notification(data)`
-Send JSON-RPC notification.
+await Promise.all(uploads)
+eywa.info(`Uploaded ${uploads.length} files`)
+```
 
-#### `register_handler(method, handler)`
-Register handler for incoming calls.
+## 🔍 Examples
+
+### Complete File Management Workflow
+
+```javascript
+import eywa, { randomUUID } from 'eywa-client'
+
+eywa.open_pipe()
+
+async function main() {
+  try {
+    // Create project structure
+    const projectId = randomUUID()
+    const docsId = randomUUID()
+    
+    await eywa.createFolder({
+      name: 'my-project',
+      euuid: projectId,
+      parent: { euuid: eywa.rootUuid }
+    })
+    
+    await eywa.createFolder({
+      name: 'documents',
+      euuid: docsId,
+      parent: { euuid: projectId }
+    })
+    
+    // Upload files
+    const files = [
+      { path: 'README.md', uuid: randomUUID() },
+      { path: 'config.json', uuid: randomUUID() }
+    ]
+    
+    for (const file of files) {
+      await eywa.upload(file.path, {
+        name: file.path.split('/').pop(),
+        euuid: file.uuid,
+        folder: { euuid: docsId }
+      })
+      eywa.info(`Uploaded ${file.path}`)
+    }
+    
+    // List uploaded files
+    const uploadedFiles = await eywa.list({
+      folder: { euuid: docsId }
+    })
+    
+    eywa.report('Project setup complete', {
+      folders: 2,
+      files: uploadedFiles.length
+    })
+    
+  } catch (error) {
+    eywa.error('Workflow failed', { message: error.message })
+    eywa.close_task(eywa.ERROR)
+    return
+  }
+  
+  eywa.close_task(eywa.SUCCESS)
+}
+
+main()
+```
+
+## 📚 API Reference
+
+### Core Functions
+
+| Function | Description |
+|----------|-------------|
+| `eywa.open_pipe()` | Initialize JSON-RPC communication |
+| `eywa.graphql(query, variables?)` | Execute GraphQL query/mutation |
+| `eywa.close_task(status)` | Complete task with status |
+
+### File Operations
+
+| Function | Description |
+|----------|-------------|
+| `upload(filepath, fileData)` | Upload file with GraphQL FileInput |
+| `uploadStream(stream, fileData)` | Upload from ReadableStream |
+| `uploadContent(content, fileData)` | Upload string/Buffer content |
+| `download(fileUuid)` | Download file as Buffer |
+| `downloadStream(fileUuid)` | Download file as stream |
+| `fileInfo(fileUuid)` | Get file information |
+| `list(filters?)` | List files with optional filters |
+| `deleteFile(fileUuid)` | Delete file by UUID |
+
+### Folder Operations
+
+| Function | Description |
+|----------|-------------|
+| `createFolder(folderData)` | Create folder with GraphQL FolderInput |
+| `listFolders(filters?)` | List folders with optional filters |
+| `getFolderInfo(data)` | Get folder info by UUID or path |
+| `deleteFolder(folderUuid)` | Delete empty folder |
 
 ### Constants
 
-- `SUCCESS` - Task completed successfully
-- `ERROR` - Task failed
-- `PROCESSING` - Task is processing
-- `EXCEPTION` - Task exception
+| Constant | Value | Description |
+|----------|-------|-------------|
+| `eywa.rootUuid` | `'87ce50d8-5dfa-4008-a265-053e727ab793'` | System root folder UUID |
+| `eywa.rootFolder` | `{euuid: rootUuid}` | Root folder reference object |
+| `eywa.SUCCESS` | `'SUCCESS'` | Task completed successfully |
+| `eywa.ERROR` | `'ERROR'` | Task failed |
 
-### Error Classes
+## 🔗 Related Projects
 
-- `FileUploadError` - Thrown on upload failures
-- `FileDownloadError` - Thrown on download failures
+- [EYWA Core](https://github.com/neyho/eywa) - The main EYWA platform
+- [Babashka Client](https://github.com/neyho/eywa/tree/master/clients/bb) - Reference implementation
+- [Python Client](https://github.com/neyho/eywa/tree/master/clients/py) - Python version
+- [C# Client](https://github.com/neyho/eywa/tree/master/clients/csharp) - C# version
 
-## Complete Example
+## 📄 License
 
-```javascript
-import eywa from 'eywa-client'
-import { createReadStream } from 'fs'
+MIT License - see [LICENSE](LICENSE) file for details.
 
-async function processFiles() {
-  eywa.open_pipe()
-  
-  try {
-    const task = await eywa.get_task()
-    eywa.info('Starting file processing', { taskId: task.euuid })
-    eywa.update_task(eywa.PROCESSING)
-    
-    // Create folder structure
-    await eywa.createFolder('/processed/2024/')
-    
-    // Upload file
-    const stream = createReadStream('/data/input.csv')
-    const file = await eywa.uploadFile(stream, '/processed/2024/input.csv')
-    eywa.info('File uploaded', { fileId: file.euuid })
-    
-    // Query uploaded files
-    const files = await eywa.graphql(`
-      query {
-        searchFile(_where: {
-          folder: { path: { _eq: "/processed/2024/" } }
-        }) {
-          euuid
-          name
-          size
-        }
-      }
-    `)
-    
-    eywa.report('Processing complete', {
-      filesProcessed: files.data.searchFile.length
-    })
-    
-    eywa.close_task(eywa.SUCCESS)
-    
-  } catch (error) {
-    eywa.error('Task failed', {
-      error: error.message,
-      stack: error.stack
-    })
-    eywa.close_task(eywa.ERROR)
-  }
-}
+## 🤝 Contributing
 
-processFiles()
-```
+1. Fork the repository
+2. Create a feature branch: `git checkout -b feature/amazing-feature`
+3. Commit changes: `git commit -m 'Add amazing feature'`
+4. Push to branch: `git push origin feature/amazing-feature`
+5. Open a Pull Request
 
-## Why No searchFiles() or listFiles() Functions?
+## 📞 Support
 
-This library intentionally provides minimal query functions. Instead of wrapping GraphQL with limited abstractions, we encourage using `graphql()` directly because:
-
-- ✅ **Full GraphQL power** - Access all operators and features
-- ✅ **No schema coupling** - Library doesn't break when schema changes  
-- ✅ **Better learning** - You learn the actual EYWA GraphQL API
-- ✅ **More flexible** - Complex queries are easier to write
-- ✅ **Less maintenance** - Fewer abstractions to maintain
-
-The library focuses on what it does best: **protocols** (upload/download flows) and **complex logic** (folder hierarchy). For queries, GraphQL is already a perfect query language!
-
-## Testing
-
-Test locally using EYWA CLI:
-
-```bash
-eywa run -c 'node my-robot.js'
-```
-
-## Examples
-
-See the `examples/` directory for:
-- Complex folder structure uploads
-- Download verification
-- Cleanup operations
-- More...
-
-## Changelog
-
-### 0.2.0 (2025-10-22)
-
-**Added:**
-- Stream-based file upload (`uploadFile`)
-- Stream-based file download (`downloadFile`)
-- Folder management (`createFolder`, `deleteFolder`)
-- File deletion (`deleteFile`)
-
-**Removed:**
-- `uploadContent` - use `uploadFile` with stream
-- `searchFiles` - use `graphql()` directly
-- `listFiles` - use `graphql()` directly
-- `getFileInfo` - use `graphql()` directly
-- `getFileByName` - use `graphql()` directly
-- `calculateFileHash` - user's responsibility
-- `quickUpload` - use `uploadFile`
-- `quickDownload` - use `downloadFile`
-
-**Philosophy:** Library handles protocols, not queries. Use GraphQL directly for maximum flexibility.
-
-### 0.1.1 (Previous)
-- Initial release with JSON-RPC and GraphQL support
-
-## License
-
-MIT © Robert Gersak
-
-## Support
-
-- Documentation: https://github.com/neyho/eywa
-- Issues: https://github.com/neyho/eywa/issues
-- Website: https://www.eywaonline.com
+- 📧 Email: robi@neyho.com
+- 🐛 Issues: [GitHub Issues](https://github.com/neyho/eywa/issues)
+- 📖 Documentation: [EYWA Documentation](https://neyho.github.io/eywa/)

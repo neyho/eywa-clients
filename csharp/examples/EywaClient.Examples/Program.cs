@@ -97,6 +97,12 @@ class Program
             Console.WriteLine("4. FileManager Example (10 file management examples)");
             Console.WriteLine("5. FilePathDownloader Example (11 download examples)");
             Console.WriteLine("6. Run All Examples");
+            Console.WriteLine();
+            Console.WriteLine("🚀 NEW: JSON Hell Escape Examples!");
+            Console.WriteLine("7. Quick Start (5-minute JSON hell relief)");
+            Console.WriteLine("8. No-Refactor Migration Guide (keep existing code)");
+            Console.WriteLine("9. Dynamic JSON Examples (hashmap-style access)");
+            Console.WriteLine();
             Console.WriteLine("0. Exit\n");
             Console.Write("Enter choice: ");
 
@@ -133,6 +139,21 @@ class Program
 
                     case "6":
                         await RunAllExamples(client);
+                        break;
+
+                    case "7":
+                        Console.WriteLine("\n🚀 Running Quick Start - 5-Minute JSON Hell Relief!");
+                        await QuickStart.FiveMinuteIntegration();
+                        break;
+
+                    case "8":
+                        Console.WriteLine("\n🛠️ Running No-Refactor Migration Guide!");
+                        await NoRefactorMigrationGuide.RunExample();
+                        break;
+
+                    case "9":
+                        Console.WriteLine("\n⚡ Running Dynamic JSON Examples!");
+                        await DynamicJsonExample.RunExample();
                         break;
 
                     case "0":

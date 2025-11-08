@@ -3,6 +3,7 @@ using System.Text;
 using System.Text.Json;
 using EywaClient.Exceptions;
 using EywaClient.Models;
+using EywaClient.Utilities;
 
 namespace EywaClient.Core;
 
@@ -343,5 +344,106 @@ public class JsonRpcClient : IDisposable
             kvp.Value.TrySetException(new ObjectDisposedException(nameof(JsonRpcClient)));
         }
         _callbacks.Clear();
+    }
+}
+
+/// <summary>
+/// Extension methods to add dynamic GraphQL access to JsonRpcClient.
+/// This eliminates JsonElement hell by providing hashmap-like access!
+/// </summary>
+public static class JsonRpcClientExtensions
+{
+    /// <summary>
+    /// Execute GraphQL and get dynamic JSON result - just like Clojure maps!
+    /// NO MORE JsonElement.TryGetProperty() hell!
+    /// </summary>
+    /// <param name="client">The JsonRpcClient instance</param>
+    /// <param name="query">GraphQL query/mutation</param>
+    /// <param name="variables">Variables (can be anonymous object, Dictionary, or null)</param>
+    /// <returns>Dynamic JSON that works like a hashmap</returns>
+    /// <example>
+    /// <code>
+    /// // OLD PAINFUL WAY:
+    /// if (result.TryGetProperty("data", out var data)) {
+    ///     if (data.TryGetProperty("searchUser", out var users)) {
+    ///         // More JsonElement hell...
+    ///     }
+    /// }
+    ///
+    /// // NEW SIMPLE WAY:
+    /// var result = await client.GraphQLDynamic(query);
+    /// var userName = result.data.searchUser[0].name;  // DONE!
+    /// </code>
+    /// </example>
+    public static async Task<dynamic> GraphQLDynamic(this JsonRpcClient client, string query, object? variables = null)
+    {
+        if (string.IsNullOrWhiteSpace(query))
+            throw new ArgumentException("Query cannot be null or empty", nameof(query));
+
+        var result = await client.SendRequestAsync<JsonElement>(
+            "eywa.datasets.graphql",
+            new { query, variables }
+        ).ConfigureAwait(false);
+
+        return new EywaClient.Utilities.DynamicJson(result);
+    }
+
+    /// <summary>
+    /// Clojure-style get-in access: await client.GetIn("data.searchUser.0.name", query)
+    /// </summary>
+    /// <typeparam name="T">Type to return</typeparam>
+    /// <param name="client">The JsonRpcClient instance</param>
+    /// <param name="path">Path to the data (e.g., "data.searchUser.0.name")</param>
+    /// <param name="query">GraphQL query</param>
+    /// <param name="variables">Optional variables</param>
+    /// <returns>The value at the specified path</returns>
+    /// <example>
+    /// <code>
+    /// // Get specific value directly
+    /// var userName = await client.GetIn&lt;string&gt;("data.searchUser.0.name", query);
+    /// var userCount = await client.GetIn&lt;int&gt;("data.searchUser.length", query);
+    /// </code>
+    /// </example>
+    public static async Task<T?> GetIn<T>(this JsonRpcClient client, string path, string query, object? variables = null)
+    {
+        var result = await client.GraphQLDynamic(query, variables);
+        return ((EywaClient.Utilities.DynamicJson)result).Get<T>(path);
+    }
+
+    /// <summary>
+    /// Get just the data portion of a GraphQL response
+    /// Equivalent to Clojure's (get result "data")
+    /// </summary>
+    /// <param name="client">The JsonRpcClient instance</param>
+    /// <param name="query">GraphQL query</param>
+    /// <param name="variables">Optional variables</param>
+    /// <returns>The data portion of the response</returns>
+    /// <example>
+    /// <code>
+    /// var data = await client.GetData(query);
+    /// var users = data.searchUser;  // Direct access to data
+    /// </code>
+    /// </example>
+    public static async Task<dynamic> GetData(this JsonRpcClient client, string query, object? variables = null)
+    {
+        var result = await client.GraphQLDynamic(query, variables);
+        return result.data;
+    }
+
+    /// <summary>
+    /// Convert any JsonElement to dynamic access
+    /// </summary>
+    /// <param name="element">The JsonElement to wrap</param>
+    /// <returns>Dynamic wrapper for easy access</returns>
+    /// <example>
+    /// <code>
+    /// var result = await client.SendRequestAsync&lt;JsonElement&gt;(method, params);
+    /// dynamic dynamic = result.AsDynamic();
+    /// var value = dynamic.some.nested.property;  // Easy!
+    /// </code>
+    /// </example>
+    public static dynamic AsDynamic(this JsonElement element)
+    {
+        return new EywaClient.Utilities.DynamicJson(element);
     }
 }

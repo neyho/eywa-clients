@@ -259,10 +259,18 @@
 
 (let [reports-uuid (get-in test-data [:folders :reports :euuid])]
   (when-let [files-list (run! "Listing files in reports folder"
-                              (files/list :folder-uuid reports-uuid))]
+                              (files/list {:folder {:euuid reports-uuid}}))]
     (println "  Found" (count files-list) "file(s):")
     (doseq [f files-list]
       (println (str "    - " (:name f) " (" (:size f) " bytes)")))))
+
+;; Also demonstrate path-based filtering  
+(let [demo-path "/demo-files/"]
+  (when-let [files-list (run! "Listing files by folder path"
+                              (files/list {:folder {:path demo-path} :limit 5}))]
+    (println "  Found" (count files-list) "file(s) in" demo-path ":")
+    (doseq [f files-list]
+      (println (str "    - " (:name f))))))
 
 ;; ============================================
 ;; EXAMPLE 8: Download and Verify Content
@@ -284,7 +292,7 @@
 (println "\n\n📋 EXAMPLE 9: List All Demo Folders")
 
 (when-let [folders (run! "Listing folders"
-                         (files/list-folders :name-pattern "demo"))]
+                         (files/list-folders {:name "demo"}))]
   (println "  Found" (count folders) "folder(s):")
   (doseq [f folders]
     (println (str "    - " (:path f)))))

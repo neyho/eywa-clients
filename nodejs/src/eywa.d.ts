@@ -1,282 +1,355 @@
 /**
- * EYWA Client Library for Node.js
- * Provides JSON-RPC communication, GraphQL queries, and task management for EYWA processes
+ * EYWA Client TypeScript Definitions
+ * 
+ * GraphQL-aligned EYWA client following the Babashka pattern.
+ * All functions use single map arguments that directly mirror GraphQL schema.
+ * Client controls UUID management for both creation and updates.
  */
 
-/**
- * Task status constants
- */
-export const SUCCESS: "SUCCESS";
-export const ERROR: "ERROR";
-export const PROCESSING: "PROCESSING";
-export const EXCEPTION: "EXCEPTION";
+// ============================================================================
+// Core Types
+// ============================================================================
 
-/**
- * Log event types
- */
-export type LogEvent = "INFO" | "WARN" | "ERROR" | "TRACE" | "DEBUG" | "EXCEPTION";
-
-/**
- * Task status types
- */
-export type TaskStatus = typeof SUCCESS | typeof ERROR | typeof PROCESSING | typeof EXCEPTION;
-
-/**
- * JSON-RPC request structure
- */
-export interface JsonRpcRequest {
-  jsonrpc?: "2.0";
-  method: string;
-  params?: any;
-  id?: string;
+export interface GraphQLResponse<T = any> {
+  data?: T;
+  error?: any;
 }
 
-/**
- * JSON-RPC response structure
- */
-export interface JsonRpcResponse {
-  jsonrpc: "2.0";
-  result?: any;
-  error?: JsonRpcError;
+export interface TaskInfo {
   id: string;
+  status: string;
+  [key: string]: any;
 }
 
-/**
- * JSON-RPC error structure
- */
-export interface JsonRpcError {
-  code: number;
-  message: string;
-  data?: any;
-}
+export type TaskStatus = 'SUCCESS' | 'ERROR' | 'PROCESSING' | 'EXCEPTION';
 
-/**
- * Log record structure
- */
-export interface LogRecord {
-  event?: LogEvent;
+export interface LogOptions {
+  event?: string;
   message: string;
   data?: any;
   duration?: number;
   coordinates?: any;
-  time?: Date;
+  time?: string | Date;
 }
 
-/**
- * GraphQL variables
- */
-export interface GraphQLVariables {
-  [key: string]: any;
-}
+// ============================================================================
+// GraphQL Input Types (Mirror Server Schema)
+// ============================================================================
 
-/**
- * Task information
- */
-export interface Task {
+export interface FileInput {
+  /** Filename (required) */
+  name: string;
+  /** File UUID - provide for updates, omit for new files (EYWA generates) */
   euuid?: string;
-  message?: string;
-  status?: TaskStatus;
-  data?: any;
-  [key: string]: any;
+  /** Parent folder reference */
+  folder?: FolderReference;
+  /** MIME content type */
+  content_type?: string;
+  /** File size in bytes */
+  size?: number;
 }
 
-/**
- * Send a JSON-RPC request and wait for response
- * @param data - The request data containing method and params
- * @returns Promise that resolves with the result or rejects with error
- * @example
- * const result = await send_request({
- *   method: 'custom.method',
- *   params: { foo: 'bar' }
- * });
- */
-export function send_request(data: Omit<JsonRpcRequest, 'jsonrpc' | 'id'>): Promise<any>;
+export interface FolderInput {
+  /** Folder name (required) */
+  name: string;
+  /** Folder UUID - provide for deterministic creation, omit for auto-generation */
+  euuid?: string;
+  /** Parent folder reference - omit for root folder */
+  parent?: FolderReference;
+}
 
-/**
- * Send a JSON-RPC notification (no response expected)
- * @param data - The notification data containing method and params
- * @example
- * send_notification({
- *   method: 'task.log',
- *   params: { message: 'Processing started' }
- * });
- */
-export function send_notification(data: Omit<JsonRpcRequest, 'jsonrpc' | 'id'>): void;
+export interface FolderReference {
+  /** Folder UUID */
+  euuid: string;
+}
 
-/**
- * Register a handler for incoming JSON-RPC method calls
- * @param method - The method name to handle
- * @param handler - Function to handle the incoming request
- * @example
- * register_handler('custom.action', (data) => {
- *   console.log('Received:', data.params);
- * });
- */
-export function register_handler(method: string, handler: (data: JsonRpcRequest) => void): void;
+export interface FileReference {
+  /** File UUID */
+  euuid: string;
+}
 
-/**
- * Initialize stdin/stdout communication with EYWA runtime
- * Must be called before using any other EYWA functions
- * @example
- * open_pipe();
- * // Now you can use other EYWA functions
- */
+// ============================================================================
+// GraphQL Output Types
+// ============================================================================
+
+export interface FileInfo {
+  euuid: string;
+  name: string;
+  status: string;
+  content_type: string;
+  size: number;
+  uploaded_at: string;
+  uploaded_by?: {
+    name: string;
+  };
+  folder?: {
+    euuid: string;
+    name: string;
+    path: string;
+  };
+}
+
+export interface FolderInfo {
+  euuid: string;
+  name: string;
+  path: string;
+  modified_on: string;
+  parent?: {
+    euuid: string;
+    name: string;
+  };
+}
+
+// ============================================================================
+// Filter Types for List Operations
+// ============================================================================
+
+export interface FileListFilters {
+  /** Maximum number of files to return */
+  limit?: number;
+  /** Filter by file status */
+  status?: string;
+  /** Filter by name pattern (SQL LIKE) */
+  name?: string;
+  /** Filter by folder */
+  folder?: {
+    /** Filter by folder UUID */
+    euuid?: string;
+    /** Filter by folder path */
+    path?: string;
+  };
+}
+
+export interface FolderListFilters {
+  /** Maximum number of folders to return */
+  limit?: number;
+  /** Filter by name pattern (SQL LIKE) */
+  name?: string;
+  /** Filter by parent folder */
+  parent?: {
+    /** Filter by parent UUID */
+    euuid?: string;
+    /** Filter by parent path */
+    path?: string;
+  } | null; // null = root folders only
+}
+
+// ============================================================================
+// Upload Options (Non-GraphQL Fields)
+// ============================================================================
+
+export interface UploadOptions extends Omit<FileInput, 'size'> {
+  /** Progress callback function (bytes_uploaded, total_bytes) */
+  progressFn?: (uploaded: number, total: number) => void;
+  /** File size (auto-detected for file paths, required for streams) */
+  size?: number;
+}
+
+export interface StreamUploadOptions extends FileInput {
+  /** Progress callback function (bytes_uploaded, total_bytes) */
+  progressFn?: (uploaded: number, total: number) => void;
+  /** Content length in bytes (required for streams) */
+  size: number;
+}
+
+export interface ContentUploadOptions extends Omit<FileInput, 'size'> {
+  /** Progress callback function (bytes_uploaded, total_bytes) */
+  progressFn?: (uploaded: number, total: number) => void;
+}
+
+// ============================================================================
+// Download Types
+// ============================================================================
+
+export interface DownloadStreamResult {
+  /** Readable stream of file content */
+  stream: NodeJS.ReadableStream;
+  /** Content length in bytes (0 if unknown) */
+  contentLength: number;
+}
+
+// ============================================================================
+// Exception Types
+// ============================================================================
+
+export class FileUploadError extends Error {
+  name: 'FileUploadError';
+  type: string;
+  code?: number;
+  
+  constructor(message: string, options?: { type?: string; code?: number });
+}
+
+export class FileDownloadError extends Error {
+  name: 'FileDownloadError';
+  type: string;
+  code?: number;
+  
+  constructor(message: string, options?: { type?: string; code?: number });
+}
+
+// ============================================================================
+// Core EYWA Client Functions
+// ============================================================================
+
+export function send_request(data: any): Promise<any>;
+export function send_notification(data: any): void;
+export function register_handler(method: string, handler: (data: any) => void): void;
 export function open_pipe(): void;
 
-/**
- * Get current task information
- * @returns Promise that resolves with task data
- * @example
- * const task = await get_task();
- * console.log('Current task:', task.message);
- */
-export function get_task(): Promise<Task>;
-
-/**
- * Log a message with full control over all parameters
- * @param record - The log record with event type, message, and optional metadata
- * @example
- * log({
- *   event: 'INFO',
- *   message: 'Processing item',
- *   data: { itemId: 123 },
- *   duration: 1500
- * });
- */
-export function log(record: LogRecord): void;
-
-/**
- * Log an info message
- * @param message - The message to log
- * @param data - Optional structured data to include
- * @example
- * info('User logged in', { userId: 'abc123' });
- */
-export function info(message: string, data?: any): void;
-
-/**
- * Log an error message
- * @param message - The error message to log
- * @param data - Optional error details or context
- * @example
- * error('Failed to process file', { filename: 'data.csv', error: err.message });
- */
-export function error(message: string, data?: any): void;
-
-/**
- * Log a warning message
- * @param message - The warning message to log
- * @param data - Optional warning context
- * @example
- * warn('API rate limit approaching', { remaining: 10 });
- */
-export function warn(message: string, data?: any): void;
-
-/**
- * Log a debug message
- * @param message - The debug message to log
- * @param data - Optional debug data
- * @example
- * debug('Cache hit', { key: 'user:123' });
- */
-export function debug(message: string, data?: any): void;
-
-/**
- * Log a trace message (most verbose level)
- * @param message - The trace message to log
- * @param data - Optional trace data
- * @example
- * trace('Entering function processData', { args: [1, 2, 3] });
- */
-export function trace(message: string, data?: any): void;
-
-/**
- * Log an exception message
- * @param message - The exception message to log
- * @param data - Optional exception details
- * @example
- * exception('Unhandled error in worker', { stack: err.stack });
- */
-export function exception(message: string, data?: any): void;
-
-/**
- * Send a task report with optional data and image
- * @param message - The report message
- * @param data - Optional structured data for the report
- * @param image - Optional image data (base64 or URL)
- * @example
- * report('Analysis complete', { accuracy: 0.95 }, chartImageBase64);
- */
-export function report(message: string, data?: any, image?: any): void;
-
-/**
- * Update the current task status
- * @param status - The new status (defaults to PROCESSING)
- * @example
- * update_task(PROCESSING);
- * // Do some work...
- * update_task(SUCCESS);
- */
+export function get_task(): Promise<TaskInfo>;
 export function update_task(status?: TaskStatus): void;
-
-/**
- * Return control to EYWA without closing the task
- * Exits the process with code 0
- * @example
- * // Hand back control to EYWA
- * return_task();
- */
 export function return_task(): void;
-
-/**
- * Close the current task with a final status
- * Exits the process with code 0 for SUCCESS, 1 for other statuses
- * @param status - The final task status (defaults to SUCCESS)
- * @example
- * try {
- *   // Do work...
- *   close_task(SUCCESS);
- * } catch (err) {
- *   error('Task failed', err);
- *   close_task(ERROR);
- * }
- */
 export function close_task(status?: TaskStatus): void;
 
-/**
- * Execute a GraphQL query against the EYWA server
- * @param query - The GraphQL query string
- * @param variables - Optional variables for the query
- * @returns Promise that resolves with the query result
- * @example
- * const result = await graphql(`
- *   query GetUser($id: UUID!) {
- *     getUser(euuid: $id) {
- *       name
- *       email
- *     }
- *   }
- * `, { id: 'user-uuid' });
- */
-export function graphql(query: string, variables?: GraphQLVariables): Promise<any>;
+export function log(options: LogOptions): void;
+export function info(message: string, data?: any): void;
+export function error(message: string, data?: any): void;
+export function debug(message: string, data?: any): void;
+export function trace(message: string, data?: any): void;
+export function warn(message: string, data?: any): void;
+export function exception(message: string, data?: any): void;
+export function report(message: string, data?: any, image?: any): void;
+
+export function graphql<T = any>(query: string, variables?: any): Promise<GraphQLResponse<T>>;
+
+// ============================================================================
+// File Operations (GraphQL-Aligned)
+// ============================================================================
 
 /**
- * Default export containing all functions and constants
+ * Upload a file to EYWA using the 3-step protocol.
+ * 
+ * @param filepath File path string or File object
+ * @param fileData File input matching GraphQL FileInput type
+ * @returns Promise that resolves to null on success or throws FileUploadError
  */
+export function upload(filepath: string | File, fileData: UploadOptions): Promise<null>;
+
+/**
+ * Upload data from a stream to EYWA.
+ * 
+ * @param inputStream Readable stream to upload
+ * @param fileData File input with required size field
+ * @returns Promise that resolves to null on success or throws FileUploadError
+ */
+export function uploadStream(inputStream: NodeJS.ReadableStream, fileData: StreamUploadOptions): Promise<null>;
+
+/**
+ * Upload content directly from memory.
+ * 
+ * @param content String or Buffer content
+ * @param fileData File input matching GraphQL FileInput type
+ * @returns Promise that resolves to null on success or throws FileUploadError
+ */
+export function uploadContent(content: string | Buffer, fileData: ContentUploadOptions): Promise<null>;
+
+/**
+ * Download a file as a Buffer.
+ * 
+ * @param fileUuid UUID of the file to download
+ * @returns Promise that resolves to file content as Buffer
+ */
+export function download(fileUuid: string): Promise<Buffer>;
+
+/**
+ * Download a file as a stream.
+ * 
+ * @param fileUuid UUID of the file to download
+ * @returns Promise that resolves to stream and content length
+ */
+export function downloadStream(fileUuid: string): Promise<DownloadStreamResult>;
+
+/**
+ * Get information about a specific file.
+ * 
+ * @param fileUuid UUID of the file
+ * @returns Promise that resolves to file info or null if not found
+ */
+export function fileInfo(fileUuid: string): Promise<FileInfo | null>;
+
+/**
+ * List files with optional filters.
+ * 
+ * @param filters Optional filter criteria
+ * @returns Promise that resolves to array of file objects
+ */
+export function list(filters?: FileListFilters): Promise<FileInfo[]>;
+
+/**
+ * Delete a file.
+ * 
+ * @param fileUuid UUID of the file to delete
+ * @returns Promise that resolves to true if successful
+ */
+export function deleteFile(fileUuid: string): Promise<boolean>;
+
+// ============================================================================
+// Folder Operations (GraphQL-Aligned)
+// ============================================================================
+
+/**
+ * Create a new folder.
+ * 
+ * @param folderData Folder input matching GraphQL FolderInput type
+ * @returns Promise that resolves to created folder information
+ */
+export function createFolder(folderData: FolderInput): Promise<FolderInfo>;
+
+/**
+ * List folders with optional filters.
+ * 
+ * @param filters Optional filter criteria
+ * @returns Promise that resolves to array of folder objects
+ */
+export function listFolders(filters?: FolderListFilters): Promise<FolderInfo[]>;
+
+/**
+ * Get information about a specific folder.
+ * 
+ * @param data Object with either euuid or path
+ * @returns Promise that resolves to folder info or null if not found
+ */
+export function getFolderInfo(data: { euuid: string } | { path: string }): Promise<FolderInfo | null>;
+
+/**
+ * Delete a folder (must be empty).
+ * 
+ * @param folderUuid UUID of the folder to delete
+ * @returns Promise that resolves to true if successful
+ */
+export function deleteFolder(folderUuid: string): Promise<boolean>;
+
+// ============================================================================
+// Constants
+// ============================================================================
+
+/** Root folder UUID */
+export const rootUuid: string;
+
+/** Root folder reference object */
+export const rootFolder: FolderReference;
+
+/** Task status constants */
+export const SUCCESS: 'SUCCESS';
+export const ERROR: 'ERROR';
+export const PROCESSING: 'PROCESSING';
+export const EXCEPTION: 'EXCEPTION';
+
+// ============================================================================
+// Default Export
+// ============================================================================
+
 declare const eywa: {
-  // Core JSON-RPC methods
+  // Core functions
   send_request: typeof send_request;
   send_notification: typeof send_notification;
   register_handler: typeof register_handler;
   open_pipe: typeof open_pipe;
-  
-  // Task management
   get_task: typeof get_task;
   update_task: typeof update_task;
   return_task: typeof return_task;
   close_task: typeof close_task;
-  
-  // Logging methods
   log: typeof log;
   info: typeof info;
   error: typeof error;
@@ -285,11 +358,29 @@ declare const eywa: {
   warn: typeof warn;
   exception: typeof exception;
   report: typeof report;
-  
-  // GraphQL
   graphql: typeof graphql;
   
+  // File operations
+  upload: typeof upload;
+  uploadStream: typeof uploadStream;
+  uploadContent: typeof uploadContent;
+  download: typeof download;
+  downloadStream: typeof downloadStream;
+  fileInfo: typeof fileInfo;
+  list: typeof list;
+  deleteFile: typeof deleteFile;
+  
+  // Folder operations
+  createFolder: typeof createFolder;
+  listFolders: typeof listFolders;
+  getFolderInfo: typeof getFolderInfo;
+  deleteFolder: typeof deleteFolder;
+  
   // Constants
+  rootUuid: typeof rootUuid;
+  rootFolder: typeof rootFolder;
+  FileUploadError: typeof FileUploadError;
+  FileDownloadError: typeof FileDownloadError;
   SUCCESS: typeof SUCCESS;
   ERROR: typeof ERROR;
   PROCESSING: typeof PROCESSING;

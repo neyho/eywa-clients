@@ -590,47 +590,48 @@
   [filters]
   (go
     (try
-      (let [query "query ListFiles($limit: Int, $where: searchFileOperator) {
-                     searchFile(_limit: $limit, _where: $where, _order_by: {uploaded_at: desc}) {
-                       euuid
-                       name
-                       status
-                       content_type
-                       size
-                       uploaded_at
-                       uploaded_by {
-                         name
-                       }
-                       folder {
-                         euuid
-                         name
-                       }
-                     }
-                   }"
+      (let [folder-filter (get filters :folder)
 
-            folder-filter (get filters :folder)
+            ;; Build folder relationship filter using new approach
+            folder-where-clause (when folder-filter
+                                  (cond
+                                    (:euuid folder-filter)
+                                    (format "(_where: {euuid: {_eq: \"%s\"}})" (:euuid folder-filter))
 
+                                    (:path folder-filter)
+                                    (format "(_where: {path: {_eq: \"%s\"}})" (:path folder-filter))
+
+                                    :else
+                                    (throw (ex-info "Invalid folder filter - must be {:euuid ...} or {:path ...}"
+                                                    {:folder folder-filter}))))
+
+            ;; Build query with dynamic folder filtering
+            query (format "query ListFiles($limit: Int, $where: searchFileOperator) {
+                            searchFile(_limit: $limit, _where: $where, _order_by: {uploaded_at: desc}) {
+                              euuid
+                              name
+                              status
+                              content_type
+                              size
+                              uploaded_at
+                              uploaded_by {
+                                name
+                              }
+                              folder%s {
+                                euuid
+                                name
+                                path
+                              }
+                            }
+                          }" (or folder-where-clause ""))
+
+            ;; Build WHERE conditions for file-level filters only
             where-conditions (cond-> []
                                (:status filters)
                                (conj {:status {:_eq (:status filters)}})
 
                                (:name filters)
-                               (conj {:name {:_ilike (str "%" (:name filters) "%")}})
-
-                               ;; Handle folder filter
-                               folder-filter
-                               (conj (cond
-                                       ;; Folder by UUID
-                                       (:euuid folder-filter)
-                                       {:folder {:euuid {:_eq (:euuid folder-filter)}}}
-
-                                       ;; Folder by path
-                                       (:path folder-filter)
-                                       {:folder {:path {:_eq (:path folder-filter)}}}
-
-                                       :else
-                                       (throw (ex-info "Invalid folder filter - must be {:euuid ...} or {:path ...}"
-                                                       {:folder folder-filter})))))
+                               (conj {:name {:_ilike (str "%" (:name filters) "%")}}))
 
             variables (cond-> {}
                         (:limit filters) (assoc :limit (:limit filters))
@@ -644,9 +645,10 @@
 
             _ (when error (throw (ex-info (str "Failed to list files: " error) {:error error})))
 
+            ;; Handle null result when folder filtering returns no matches
             files (get-in result [:data :searchFile])]
 
-        files)
+        (if (nil? files) [] files))
 
       (catch Exception e
         e))))

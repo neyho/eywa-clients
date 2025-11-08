@@ -1,3 +1,9 @@
+import sys
+import os
+
+# Add the src directory to Python path
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
+
 import eywa
 import asyncio
 
@@ -27,14 +33,15 @@ async def add_user(username, password):
     return await eywa.graphql(
         """
     mutation($user:UserInput) {
-        syncUser(user:$user) {
+        syncUser(data:$user) {
             euuid
             name
             password
         }
     }
     """,
-    {"user": {"name": username, "password": password}})
+        {"user": {"name": username, "password": password}},
+    )
 
 
 async def main():
@@ -56,8 +63,9 @@ async def main():
 
     print(await eywa.graphql("Bad Query"))
 
-    print(f'Exiting!')
+    print(f"Exiting!")
     eywa.exit()
 
 
 asyncio.run(main())
+

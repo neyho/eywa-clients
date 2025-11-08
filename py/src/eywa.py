@@ -35,7 +35,7 @@ def handle_data(data):
     elif error and id_:
         handle_error(id_, error)
     else:
-        print('Received invalid JSON-RPC:\n', data)
+        print("Received invalid JSON-RPC:\n", data)
 
 
 def handle_request(data):
@@ -53,7 +53,7 @@ def handle_result(id_, result):
         callback.set_result(result)
         # print(f'Handling response for {callback}')
     else:
-        print(f'RPC callback not registered for request with id = {id_}')
+        print(f"RPC callback not registered for request with id = {id_}")
 
 
 class JSONRPCException(Exception):
@@ -68,7 +68,7 @@ def handle_error(id_, error):
         callback.set_result(JSONRPCException(error))
         # print(f'Handling response for {callback}')
     else:
-        print(f'RPC callback not registered for request with id = {id_}')
+        print(f"RPC callback not registered for request with id = {id_}")
 
 
 def custom_serializer(obj):
@@ -118,7 +118,7 @@ def register_handler(method, func):
 
 class LargeBufferStreamReader(asyncio.StreamReader):
     # Default limit set to 10 MB here.
-    def __init__(self, limit=1024*1024*10, *args, **kwargs):
+    def __init__(self, limit=1024 * 1024 * 10, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._limit = limit
 
@@ -139,6 +139,7 @@ class WindowsStdinReader:
 
         # Use thread pool executor for blocking I/O on Windows
         import concurrent.futures
+
         self._executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
 
         try:
@@ -146,8 +147,7 @@ class WindowsStdinReader:
                 # Read from STDIN in a separate thread to avoid blocking
                 try:
                     line = await self._loop.run_in_executor(
-                        self._executor,
-                        self._read_line_blocking
+                        self._executor, self._read_line_blocking
                     )
 
                     if line and self.running:
@@ -155,8 +155,7 @@ class WindowsStdinReader:
                             json_data = json.loads(line.strip())
                             data_handler(json_data)
                         except json.JSONDecodeError as e:
-                            logger.error(f"JSON decode error: {
-                                         e}, line: {line}")
+                            logger.error(f"JSON decode error: {e}, line: {line}")
                         except Exception as e:
                             logger.error(f"Error handling data: {e}")
 
@@ -195,7 +194,7 @@ class WindowsStdinReader:
 async def read_stdin():
     """Cross-platform STDIN reader with Windows compatibility."""
 
-    if platform.system() == 'Windows':
+    if platform.system() == "Windows":
         # Use Windows-specific reader
         reader = WindowsStdinReader()
         await reader.start(handle_data)
@@ -205,7 +204,9 @@ async def read_stdin():
         protocol = asyncio.StreamReaderProtocol(reader)
 
         try:
-            await asyncio.get_event_loop().connect_read_pipe(lambda: protocol, sys.stdin)
+            await asyncio.get_event_loop().connect_read_pipe(
+                lambda: protocol, sys.stdin
+            )
         except Exception as e:
             logger.error(f"Failed to connect read pipe: {e}")
             # Fallback to Windows-style reader even on Unix if pipe connection fails
@@ -234,8 +235,8 @@ PROCESSING = "PROCESSING"
 EXCEPTION = "EXCEPTION"
 
 
-class Sheet():
-    def __init__(self, name='Sheet'):
+class Sheet:
+    def __init__(self, name="Sheet"):
         self.name = name
         self.rows = []
         self.columns = []
@@ -253,8 +254,8 @@ class Sheet():
         return json.dumps(self, default=lambda o: o.__dict__)
 
 
-class Table():
-    def __init__(self, name='Table'):
+class Table:
+    def __init__(self, name="Table"):
         self.name = name
         self.sheets = []
 
@@ -269,29 +270,34 @@ class Table():
 
 
 # TODO finish task reporting
-class TaskReport():
+class TaskReport:
     def __init__(self, message, data=None, image=None):
         self.message = message
         self.data = data
         self.image = image
 
 
-def log(event="INFO", message="", data=None, duration=None, coordinates=None, time=None):
+def log(
+    event="INFO", message="", data=None, duration=None, coordinates=None, time=None
+):
     if time is None:
         from datetime import datetime
+
         time = datetime.now()
 
-    send_notification({
-        "method": "task.log",
-        "params": {
-            "time": time,
-            "event": event,
-            "message": message,
-            "data": data,
-            "coordinates": coordinates,
-            "duration": duration
+    send_notification(
+        {
+            "method": "task.log",
+            "params": {
+                "time": time,
+                "event": event,
+                "message": message,
+                "data": data,
+                "coordinates": coordinates,
+                "duration": duration,
+            },
         }
-    })
+    )
 
 
 def info(message, data=None):
@@ -319,23 +325,16 @@ def exception(message, data=None):
 
 
 def report(message, data=None, image=None):
-    send_notification({
-        'method': 'task.report',
-        'params': {
-            'message': message,
-            'data': data,
-            'image': image
+    send_notification(
+        {
+            "method": "task.report",
+            "params": {"message": message, "data": data, "image": image},
         }
-    })
+    )
 
 
 def close_task(status="SUCCESS"):
-    send_notification({
-        'method': 'task.close',
-        'params': {
-            'status': status
-        }
-    })
+    send_notification({"method": "task.close", "params": {"status": status}})
 
     if status == "SUCCESS":
         exit(0)
@@ -344,98 +343,38 @@ def close_task(status="SUCCESS"):
 
 
 def update_task(status="PROCESSING"):
-    send_notification({
-        'method': 'task.update',
-        'params': {
-            'status': status
-        }
-    })
+    send_notification({"method": "task.update", "params": {"status": status}})
 
 
 async def get_task():
-    return await send_request({'method': 'task.get'})
+    return await send_request({"method": "task.get"})
 
 
 def return_task():
-    send_notification({
-        'method': 'task.return'
-    })
+    send_notification({"method": "task.return"})
     exit(0)
 
 
+# Fix potential circular import with dynamic import
+async def _get_eywa_module():
+    """Get eywa module for GraphQL calls to avoid circular imports"""
+    import sys
+    return sys.modules[__name__]
+
 async def graphql(query, variables=None):
-    return await send_request({
-        'method': 'eywa.datasets.graphql',
-        'params': {
-            'query': query,
-            'variables': variables
+    return await send_request(
+        {
+            "method": "eywa.datasets.graphql",
+            "params": {"query": query, "variables": variables},
         }
-    })
-
-
-# File operations - import from eywa_files module
-try:
-    from .eywa_files import (
-        upload_file,
-        upload_content,
-        download_file,
-        list_files,
-        get_file_info,
-        get_file_by_name,
-        delete_file,
-        calculate_file_hash,
-        quick_upload,
-        quick_download,
-        FileUploadError,
-        FileDownloadError
     )
-except ImportError:
-    # If eywa_files module is not available, provide stub functions
-    async def upload_file(*args, **kwargs):
-        raise NotImplementedError(
-            "File operations require aiohttp. Install with: pip install aiohttp")
 
-    async def download_file(*args, **kwargs):
-        raise NotImplementedError(
-            "File operations require aiohttp. Install with: pip install aiohttp")
 
-    async def upload_content(*args, **kwargs):
-        raise NotImplementedError(
-            "File operations require aiohttp. Install with: pip install aiohttp")
-
-    async def list_files(*args, **kwargs):
-        raise NotImplementedError(
-            "File operations require aiohttp. Install with: pip install aiohttp")
-
-    async def get_file_info(*args, **kwargs):
-        raise NotImplementedError(
-            "File operations require aiohttp. Install with: pip install aiohttp")
-
-    async def get_file_by_name(*args, **kwargs):
-        raise NotImplementedError(
-            "File operations require aiohttp. Install with: pip install aiohttp")
-
-    async def delete_file(*args, **kwargs):
-        raise NotImplementedError(
-            "File operations require aiohttp. Install with: pip install aiohttp")
-
-    def calculate_file_hash(*args, **kwargs):
-        raise NotImplementedError(
-            "File operations require additional dependencies")
-
-    async def quick_upload(*args, **kwargs):
-        raise NotImplementedError(
-            "File operations require aiohttp. Install with: pip install aiohttp")
-
-    async def quick_download(*args, **kwargs):
-        raise NotImplementedError(
-            "File operations require aiohttp. Install with: pip install aiohttp")
-
-    class FileUploadError(Exception):
-        pass
-
-    class FileDownloadError(Exception):
-        pass
+# File operations are now available as a separate module:
+# from eywa_files import upload, download, list, etc.
+# 
+# This eliminates circular dependencies and provides cleaner separation.
+# See examples/modernized_file_operations.py for usage patterns.
 
 
 __stdin__task__ = None
@@ -448,10 +387,9 @@ def open_pipe():
     except Exception as e:
         logger.error(f"Failed to open pipe: {e}")
         # Try setting up Windows event loop if needed
-        if platform.system() == 'Windows':
+        if platform.system() == "Windows":
             try:
-                asyncio.set_event_loop_policy(
-                    asyncio.WindowsProactorEventLoopPolicy())
+                asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
                 __stdin__task__ = asyncio.create_task(read_stdin())
             except Exception as e2:
                 logger.error(f"Failed to open pipe with Windows policy: {e2}")
@@ -468,7 +406,7 @@ def exit(status=0):
 
     try:
         # Try to reset STDIN to blocking mode
-        if hasattr(os, 'set_blocking'):
+        if hasattr(os, "set_blocking"):
             os.set_blocking(sys.stdin.fileno(), True)
     except (AttributeError, OSError) as e:
         logger.debug(f"Could not reset STDIN blocking mode: {e}")

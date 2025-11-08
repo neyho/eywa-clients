@@ -1,7 +1,7 @@
 {
   "name": "eywa-client",
-  "version": "0.2.0",
-  "description": "EYWA client library for Node.js: JSON-RPC, GraphQL, stream-based file operations, and task management",
+  "version": "0.3.0",
+  "description": "EYWA client library for Node.js: GraphQL-aligned file operations, JSON-RPC, and task management following the Babashka pattern",
   "main": "src/index.js",
   "types": "src/eywa.d.ts",
   "scripts": {
@@ -19,7 +19,9 @@
     "streams",
     "robotics",
     "automation",
-    "data-modeling"
+    "data-modeling",
+    "uuid-management",
+    "babashka-pattern"
   ],
   "author": "Robert Gersak <robi@neyho.com>",
   "license": "MIT",

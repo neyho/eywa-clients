@@ -133,6 +133,10 @@ public class FolderReference
     [JsonPropertyName("euuid")]
     public Guid Euuid { get; set; }
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="FolderReference"/> class.
+    /// </summary>
+    /// <param name="euuid">The unique identifier for the folder.</param>
     public FolderReference(Guid euuid)
     {
         Euuid = euuid;

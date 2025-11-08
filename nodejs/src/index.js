@@ -1,8 +1,9 @@
 /**
  * EYWA Client - Main Entry Point
  * 
- * This module combines core EYWA functionality with file operations
- * into a single unified export.
+ * GraphQL-aligned EYWA client following the Babashka pattern.
+ * All functions use single map arguments that directly mirror GraphQL schema.
+ * Client controls UUID management for both creation and updates.
  */
 
 // Import core EYWA functions
@@ -30,16 +31,32 @@ import {
   EXCEPTION
 } from './eywa.js'
 
-// Import file operations
+// Import GraphQL-aligned file operations
 import {
-  createFolder,
-  deleteFolder,
-  uploadFile,
-  downloadFile,
+  // File operations
+  upload,
+  uploadStream,
+  uploadContent,
+  download,
+  downloadStream,
+  fileInfo,
+  list,
   deleteFile,
+  
+  // Folder operations
+  createFolder,
+  listFolders,
+  getFolderInfo,
+  deleteFolder,
+  
+  // Constants and utilities
+  rootUuid,
+  rootFolder,
+  
+  // Exception types
   FileUploadError,
   FileDownloadError
-} from './eywa_files.js'
+} from './files.js'
 
 // Export everything as default object
 export default {
@@ -66,16 +83,27 @@ export default {
   report,
   graphql,
   
-  // File operations
-  createFolder,
-  deleteFolder,
-  uploadFile,
-  downloadFile,
+  // File operations (GraphQL-aligned)
+  upload,
+  uploadStream,
+  uploadContent,
+  download,
+  downloadStream,
+  fileInfo,
+  list,
   deleteFile,
-  FileUploadError,
-  FileDownloadError,
+  
+  // Folder operations (GraphQL-aligned)
+  createFolder,
+  listFolders,
+  getFolderInfo,
+  deleteFolder,
   
   // Constants
+  rootUuid,
+  rootFolder,
+  FileUploadError,
+  FileDownloadError,
   SUCCESS,
   ERROR,
   PROCESSING,
@@ -103,16 +131,27 @@ export {
   report,
   graphql,
   
-  // File operations
-  createFolder,
-  deleteFolder,
-  uploadFile,
-  downloadFile,
+  // File operations (GraphQL-aligned)
+  upload,
+  uploadStream,
+  uploadContent,
+  download,
+  downloadStream,
+  fileInfo,
+  list,
   deleteFile,
-  FileUploadError,
-  FileDownloadError,
+  
+  // Folder operations (GraphQL-aligned)
+  createFolder,
+  listFolders,
+  getFolderInfo,
+  deleteFolder,
   
   // Constants
+  rootUuid,
+  rootFolder,
+  FileUploadError,
+  FileDownloadError,
   SUCCESS,
   ERROR,
   PROCESSING,

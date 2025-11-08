@@ -1,11 +1,19 @@
 """
-Type hints for EYWA Python client library.
-Provides async JSON-RPC communication, GraphQL queries, and task management for EYWA processes.
+Type hints for EYWA Python client library v2.0.
+Provides async JSON-RPC communication, GraphQL queries, task management, 
+and comprehensive file operations for EYWA processes.
+
+Version 2.0 includes modernized file operations with:
+- Single map arguments matching GraphQL schema
+- Client-controlled UUID management
+- Complete folder operations support
+- Streaming upload/download capabilities
 """
 
-from typing import Any, Dict, Optional, List, Callable, Union, Awaitable
+from typing import Any, Dict, Optional, List, Callable, Union, Awaitable, AsyncIterator
 from datetime import datetime, date
 from asyncio import Future
+from pathlib import Path
 
 # Task status constants
 SUCCESS: str
@@ -339,6 +347,274 @@ def exit(status: int = 0) -> None:
         >>> exit(1)  # Error
     """
     ...
+
+# ==============================================================================
+# File Operations v2.0 - Modernized API
+# ==============================================================================
+
+# Constants
+ROOT_UUID: str
+ROOT_FOLDER: Dict[str, str]
+
+# Exception Types
+class FileUploadError(Exception):
+    """Raised when file upload operations fail."""
+    type: str
+    code: Optional[int]
+    
+    def __init__(self, message: str, type: str = "upload-error", code: Optional[int] = None) -> None: ...
+
+class FileDownloadError(Exception):
+    """Raised when file download operations fail."""
+    type: str
+    code: Optional[int]
+    
+    def __init__(self, message: str, type: str = "download-error", code: Optional[int] = None) -> None: ...
+
+# Core Upload Operations
+async def upload(filepath: Union[str, Path], file_data: Dict[str, Any]) -> None:
+    """
+    Upload a file to EYWA using modern single-map argument API.
+    
+    Args:
+        filepath: Path to file to upload
+        file_data: File metadata dict:
+            name: str (optional, defaults to filename)
+            euuid: str (optional, client-generated UUID)
+            folder: dict (optional, {"euuid": "..."} or {"path": "..."})
+            content_type: str (optional, auto-detected)
+            size: int (optional, auto-calculated)
+            progress_fn: callable (optional, progress callback)
+    
+    Returns:
+        None on success
+        
+    Raises:
+        FileUploadError: If upload fails
+        
+    Example:
+        >>> import uuid
+        >>> await upload("test.txt", {
+        ...     "name": "test.txt",
+        ...     "euuid": str(uuid.uuid4()),
+        ...     "folder": {"euuid": folder_uuid}
+        ... })
+    """
+    ...
+
+async def upload_stream(input_stream: AsyncIterator[bytes], file_data: Dict[str, Any]) -> None:
+    """
+    Upload from an async stream.
+    
+    Args:
+        input_stream: Async iterator of bytes
+        file_data: File metadata with required 'name' and 'size' fields
+        
+    Raises:
+        FileUploadError: If upload fails
+    """
+    ...
+
+async def upload_content(content: Union[str, bytes], file_data: Dict[str, Any]) -> None:
+    """
+    Upload content directly from memory.
+    
+    Args:
+        content: String or bytes to upload
+        file_data: File metadata with required 'name' field
+        
+    Raises:
+        FileUploadError: If upload fails
+        
+    Example:
+        >>> await upload_content("Hello World", {
+        ...     "name": "greeting.txt",
+        ...     "content_type": "text/plain"
+        ... })
+    """
+    ...
+
+# Core Download Operations
+async def download_stream(file_uuid: str) -> Dict[str, Any]:
+    """
+    Download file as stream for memory efficiency.
+    
+    Args:
+        file_uuid: UUID of file to download
+        
+    Returns:
+        Dict with 'stream' and 'content_length' keys
+        
+    Raises:
+        FileDownloadError: If download fails
+        
+    Example:
+        >>> result = await download_stream(file_uuid)
+        >>> async for chunk in result["stream"]:
+        ...     process_chunk(chunk)
+    """
+    ...
+
+async def download(file_uuid: str, save_path: Optional[Union[str, Path]] = None, 
+                  progress_fn: Optional[Callable[[int, int], None]] = None) -> Union[str, bytes]:
+    """
+    Download file to memory or disk.
+    
+    Args:
+        file_uuid: UUID of file to download
+        save_path: Optional path to save file
+        progress_fn: Optional progress callback
+        
+    Returns:
+        If save_path: path to saved file
+        If no save_path: file content as bytes
+        
+    Raises:
+        FileDownloadError: If download fails
+    """
+    ...
+
+# File Management Operations
+async def file_info(file_uuid: str) -> Optional[Dict[str, Any]]:
+    """
+    Get detailed file information.
+    
+    Args:
+        file_uuid: UUID of file
+        
+    Returns:
+        File info dict or None if not found
+        
+    Example:
+        >>> info = await file_info(file_uuid)
+        >>> print(f"File: {info['name']} ({info['size']} bytes)")
+    """
+    ...
+
+async def list(filters: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """
+    List files with modern GraphQL filtering.
+    
+    Args:
+        filters: Filter criteria:
+            limit: int (optional)
+            status: str (optional)
+            name: str (optional, SQL LIKE pattern)
+            folder: dict (optional, {"euuid": "..."} or {"path": "..."})
+            
+    Returns:
+        List of file dicts
+        
+    Example:
+        >>> files = await list({
+        ...     "folder": {"euuid": folder_uuid},
+        ...     "limit": 10
+        ... })
+    """
+    ...
+
+async def delete_file(file_uuid: str) -> bool:
+    """
+    Delete a file.
+    
+    Args:
+        file_uuid: UUID of file to delete
+        
+    Returns:
+        True if deletion successful
+    """
+    ...
+
+# Folder Operations (NEW in v2.0)
+async def create_folder(folder_data: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Create a new folder.
+    
+    Args:
+        folder_data: Folder definition:
+            name: str (required)
+            euuid: str (optional, client-generated)
+            parent: dict (optional, {"euuid": "..."} for parent)
+            
+    Returns:
+        Created folder info dict
+        
+    Example:
+        >>> folder = await create_folder({
+        ...     "name": "reports",
+        ...     "euuid": str(uuid.uuid4()),
+        ...     "parent": {"euuid": ROOT_UUID}
+        ... })
+    """
+    ...
+
+async def list_folders(filters: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """
+    List folders with parent filtering.
+    
+    Args:
+        filters: Filter criteria:
+            limit: int (optional)
+            name: str (optional)
+            parent: dict|None (optional, {"euuid": "..."}, {"path": "..."}, or None for root)
+            
+    Returns:
+        List of folder dicts
+    """
+    ...
+
+async def get_folder_info(data: Dict[str, str]) -> Optional[Dict[str, Any]]:
+    """
+    Get folder information by UUID or path.
+    
+    Args:
+        data: {"euuid": "..."} or {"path": "..."}
+        
+    Returns:
+        Folder info dict or None if not found
+    """
+    ...
+
+async def delete_folder(folder_uuid: str) -> bool:
+    """
+    Delete an empty folder.
+    
+    Args:
+        folder_uuid: UUID of folder to delete
+        
+    Returns:
+        True if deletion successful
+    """
+    ...
+
+# Utility Functions
+def calculate_file_hash(filepath: Union[str, Path], algorithm: str = 'sha256') -> str:
+    """
+    Calculate hash of a file.
+    
+    Args:
+        filepath: Path to file
+        algorithm: Hash algorithm (md5, sha1, sha256, etc.)
+        
+    Returns:
+        Hex digest of file hash
+    """
+    ...
+
+# Convenience Functions
+async def quick_upload(filepath: Union[str, Path]) -> str:
+    """Quick upload with minimal parameters. Returns file UUID."""
+    ...
+
+async def quick_download(file_uuid: str, filename: Optional[str] = None) -> str:
+    """Quick download to current directory. Returns saved file path."""
+    ...
+
+# Legacy Aliases (DEPRECATED - use new function names)
+upload_file = upload
+download_file = download 
+get_file_info = file_info
+list_files = list
 
 # Internal functions (not typically used directly)
 def handle_data(data: Dict[str, Any]) -> None: ...
