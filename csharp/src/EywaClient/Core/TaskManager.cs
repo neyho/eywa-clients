@@ -1,104 +1,102 @@
-using EywaClient.Models;
+/// <summary>
+/// EYWA Task Manager - Simple task lifecycle management
+/// 
+/// Handles task status updates using dynamic data structures
+/// to stay GraphQL-aligned.
+/// </summary>
+
+using EywaClient.Core;
 
 namespace EywaClient.Core;
 
 /// <summary>
-/// Manages EYWA task lifecycle operations.
+/// EYWA execution status
+/// </summary>
+/// <summary>
+/// Task status values for EYWA operations
+/// </summary>
+public enum Status
+{
+    /// <summary>Task completed successfully</summary>
+    Success,
+    /// <summary>Task failed with error</summary>
+    Error,
+    /// <summary>Task is currently processing</summary>
+    Processing,
+    /// <summary>Task encountered an exception</summary>
+    Exception
+}
+
+/// <summary>
+/// Simple task lifecycle manager
 /// </summary>
 public class TaskManager
 {
-    private readonly JsonRpcClient _rpcClient;
-
+    private readonly JsonRpcClient _client;
+    
     /// <summary>
-    /// Initializes a new instance of the <see cref="TaskManager"/> class.
+    /// Creates a new TaskManager instance
     /// </summary>
-    /// <param name="rpcClient">The JSON-RPC client.</param>
-    public TaskManager(JsonRpcClient rpcClient)
+    /// <param name="client">The JSON-RPC client to use for task operations</param>
+    public TaskManager(JsonRpcClient client)
     {
-        _rpcClient = rpcClient ?? throw new ArgumentNullException(nameof(rpcClient));
+        _client = client;
     }
-
+    
     /// <summary>
-    /// Gets the current task information from the EYWA server.
+    /// Get current task information
     /// </summary>
-    /// <returns>The task information.</returns>
-    /// <example>
-    /// <code>
-    /// var task = await taskManager.GetTaskAsync();
-    /// Console.WriteLine($"Task: {task.Message}");
-    /// Console.WriteLine($"Status: {task.Status}");
-    /// </code>
-    /// </example>
-    public async Task<TaskInfo> GetTaskAsync()
+    public async Task<Dictionary<string, object>> GetTaskAsync()
     {
-        var result = await _rpcClient.SendRequestAsync<TaskInfo>("task.get", null)
-            .ConfigureAwait(false);
+        var response = await _client.SendRequestAsync("task.get");
+        return (response["result"] as Dictionary<string, object>) ?? new Dictionary<string, object>();
+    }
+    
+    /// <summary>
+    /// Update task status
+    /// </summary>
+    public async Task UpdateTaskAsync(Status status)
+    {
+        var statusString = status switch
+        {
+            Status.Success => "SUCCESS",
+            Status.Error => "ERROR", 
+            Status.Processing => "PROCESSING",
+            Status.Exception => "EXCEPTION",
+            _ => "PROCESSING"
+        };
         
-        return result ?? new TaskInfo();
-    }
-
-    /// <summary>
-    /// Updates the current task status.
-    /// </summary>
-    /// <param name="status">The new task status.</param>
-    /// <example>
-    /// <code>
-    /// taskManager.UpdateTask(TaskStatus.Processing);
-    /// // Do work...
-    /// taskManager.UpdateTask(TaskStatus.Success);
-    /// </code>
-    /// </example>
-    public void UpdateTask(Models.TaskStatus status)
-    {
-        _rpcClient.SendNotification("task.update", new
+        await _client.SendNotificationAsync("task.update", new Dictionary<string, object>
         {
-            status = status.ToString().ToUpperInvariant()
+            ["status"] = statusString
         });
     }
-
+    
     /// <summary>
-    /// Closes the current task with a final status and exits the process.
+    /// Return task (without closing)
     /// </summary>
-    /// <param name="status">The final task status (default: Success).</param>
-    /// <example>
-    /// <code>
-    /// try
-    /// {
-    ///     // Do work...
-    ///     taskManager.CloseTask(TaskStatus.Success);
-    /// }
-    /// catch (Exception ex)
-    /// {
-    ///     Console.Error.WriteLine($"Error: {ex.Message}");
-    ///     taskManager.CloseTask(TaskStatus.Error);
-    /// }
-    /// </code>
-    /// </example>
-    public void CloseTask(Models.TaskStatus status = Models.TaskStatus.Success)
+    public async Task ReturnTaskAsync()
     {
-        _rpcClient.SendNotification("task.close", new
-        {
-            status = status.ToString().ToUpperInvariant()
-        });
-
-        // Exit with appropriate code
-        var exitCode = status == Models.TaskStatus.Success ? 0 : 1;
-        Environment.Exit(exitCode);
+        await _client.SendNotificationAsync("task.return");
     }
-
+    
     /// <summary>
-    /// Returns control to EYWA without closing the task.
-    /// Exits the process with code 0.
+    /// Close task with final status
     /// </summary>
-    /// <example>
-    /// <code>
-    /// // Hand back control to EYWA for later continuation
-    /// taskManager.ReturnTask();
-    /// </code>
-    /// </example>
-    public void ReturnTask()
+    public async Task CloseTaskAsync(Status status)
     {
-        _rpcClient.SendNotification("task.return", null);
-        Environment.Exit(0);
+        var statusString = status switch
+        {
+            Status.Success => "SUCCESS",
+            Status.Error => "ERROR",
+            Status.Processing => "PROCESSING", 
+            Status.Exception => "EXCEPTION",
+            _ => "SUCCESS"
+        };
+        
+        await _client.SendNotificationAsync("task.close", new Dictionary<string, object>
+        {
+            ["status"] = statusString
+        });
     }
 }

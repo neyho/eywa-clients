@@ -1,42 +1,67 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net9.0</TargetFramework>
+    <!-- Target multiple frameworks for broader compatibility -->
+    <TargetFrameworks>net6.0;net8.0;net9.0</TargetFrameworks>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <LangVersion>latest</LangVersion>
+    
+    <!-- NuGet Package Metadata -->
+    <PackageId>EywaClient</PackageId>
+    <Version>0.2.0</Version>
+    <AssemblyVersion>1.0.0.0</AssemblyVersion>
+    <FileVersion>1.0.0.0</FileVersion>
     
     <!-- Package Information -->
-    <PackageId>EywaClient</PackageId>
-    <Version>0.1.0</Version>
-    <Authors>Robert Gersak</Authors>
-    <Company>neyho.com</Company>
+    <Authors>EYWA Team</Authors>
+    <Company>EYWA</Company>
     <Product>EYWA Client</Product>
-    <Description>EYWA client library for .NET: JSON-RPC, GraphQL, stream-based file operations, and task management for robotic process automation</Description>
-    <Copyright>Copyright © 2025 Robert Gersak</Copyright>
+    <Title>EYWA C# Client</Title>
+    <Description>Dynamic GraphQL-first client for EYWA automation platform. Provides JSON-RPC communication, GraphQL operations, and S3 file management with Dictionary-based dynamic approach.</Description>
+    <Summary>Dynamic C# client for EYWA platform - GraphQL, files, and automation</Summary>
+    <PackageDescription>$(Description)</PackageDescription>
+    <Copyright>Copyright © $(Authors) $([System.DateTime]::Now.Year)</Copyright>
+    
+    <!-- Licensing and Repository -->
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageProjectUrl>https://github.com/neyho/eywa</PackageProjectUrl>
     <RepositoryUrl>https://github.com/neyho/eywa</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
-    <PackageTags>eywa;client;json-rpc;graphql;files;upload;download;streams;robotics;automation;data-modeling;rpa</PackageTags>
-    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <RepositoryBranch>master</RepositoryBranch>
     
-    <!-- Documentation -->
+    <!-- Package Tags and Classification -->
+    <PackageTags>eywa;graphql;dynamic;automation;rpa;files;s3;json-rpc</PackageTags>
+    <PackageReleaseNotes>Initial release: GraphQL operations, file management, JSON-RPC communication</PackageReleaseNotes>
+    
+    <!-- Documentation and Links -->
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+
+    
+    <!-- Build Configuration -->
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
-    <DocumentationFile>bin\$(Configuration)\$(TargetFramework)\$(AssemblyName).xml</DocumentationFile>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    
+    <!-- Assembly Metadata -->
+    <AssemblyTitle>$(Title)</AssemblyTitle>
+    <AssemblyDescription>$(Description)</AssemblyDescription>
+    <AssemblyCompany>$(Company)</AssemblyCompany>
+    <AssemblyProduct>$(Product)</AssemblyProduct>
+    <AssemblyConfiguration>$(Configuration)</AssemblyConfiguration>
   </PropertyGroup>
 
+    <!-- Package Dependencies -->
   <ItemGroup>
-    <PackageReference Include="MimeMapping" Version="3.0.1" />
-    <PackageReference Include="MimeTypes" Version="2.5.2">
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-      <PrivateAssets>all</PrivateAssets>
-    </PackageReference>
-    <PackageReference Include="System.Text.Json" Version="9.0.0" />
+    <!-- Use secure versions to avoid vulnerabilities -->
+    <PackageReference Include="System.Text.Json" Version="6.0.10" Condition="'$(TargetFramework)' == 'net6.0'" />
+    <PackageReference Include="System.Text.Json" Version="8.0.5" Condition="'$(TargetFramework)' == 'net8.0'" />
+    <PackageReference Include="System.Text.Json" Version="9.0.0" Condition="'$(TargetFramework)' == 'net9.0'" />
   </ItemGroup>
-
+  
+  <!-- Package Files -->
   <ItemGroup>
-    <None Include="..\..\README.md" Pack="true" PackagePath="\" />
+    <None Include="PACKAGE-README.md" Pack="true" PackagePath="README.md" />
   </ItemGroup>
 
 </Project>

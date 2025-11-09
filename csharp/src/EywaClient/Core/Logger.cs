@@ -1,201 +1,108 @@
-using EywaClient.Models;
+/// <summary>
+/// EYWA Logger - Simple structured logging
+/// 
+/// Uses dynamic data structures for logging parameters to stay
+/// GraphQL-aligned and flexible.
+/// </summary>
+
+using EywaClient.Core;
 
 namespace EywaClient.Core;
 
 /// <summary>
-/// Provides logging functionality for EYWA robots.
+/// Simple structured logger for EYWA
 /// </summary>
 public class Logger
 {
-    private readonly JsonRpcClient _rpcClient;
-
-    /// <summary>
-    /// Initializes a new instance of the <see cref="Logger"/> class.
-    /// </summary>
-    /// <param name="rpcClient">The JSON-RPC client.</param>
-    public Logger(JsonRpcClient rpcClient)
+    private readonly JsonRpcClient _client;
+    
+    public Logger(JsonRpcClient client)
     {
-        _rpcClient = rpcClient ?? throw new ArgumentNullException(nameof(rpcClient));
+        _client = client;
     }
-
+    
     /// <summary>
-    /// Logs a message with full control over all parameters.
+    /// Log info message
     /// </summary>
-    /// <param name="record">The log record containing event type, message, and optional metadata.</param>
-    /// <example>
-    /// <code>
-    /// logger.Log(new LogRecord
-    /// {
-    ///     Event = "INFO",
-    ///     Message = "Processing item",
-    ///     Data = new { itemId = 123 },
-    ///     Duration = 1500
-    /// });
-    /// </code>
-    /// </example>
-    public void Log(LogRecord record)
+    public async Task InfoAsync(string message, object? data = null)
     {
-        if (record == null)
-            throw new ArgumentNullException(nameof(record));
-
-        _rpcClient.SendNotification("task.log", new
-        {
-            time = record.Time,
-            @event = record.Event,
-            message = record.Message,
-            data = record.Data,
-            coordinates = record.Coordinates,
-            duration = record.Duration
-        });
+        await LogAsync("INFO", message, data);
     }
-
+    
     /// <summary>
-    /// Logs an informational message.
+    /// Log debug message
     /// </summary>
-    /// <param name="message">The message to log.</param>
-    /// <param name="data">Optional structured data to include.</param>
-    /// <example>
-    /// <code>
-    /// logger.Info("User logged in", new { userId = "abc123" });
-    /// </code>
-    /// </example>
-    public void Info(string message, object? data = null)
+    public async Task DebugAsync(string message, object? data = null)
     {
-        Log(new LogRecord
-        {
-            Event = "INFO",
-            Message = message,
-            Data = data
-        });
+        await LogAsync("DEBUG", message, data);
     }
-
+    
     /// <summary>
-    /// Logs an error message.
+    /// Log warning message
     /// </summary>
-    /// <param name="message">The error message to log.</param>
-    /// <param name="data">Optional error details or context.</param>
-    /// <example>
-    /// <code>
-    /// logger.Error("Failed to process file", new 
-    /// { 
-    ///     filename = "data.csv", 
-    ///     error = ex.Message 
-    /// });
-    /// </code>
-    /// </example>
-    public void Error(string message, object? data = null)
+    public async Task WarnAsync(string message, object? data = null)
     {
-        Log(new LogRecord
-        {
-            Event = "ERROR",
-            Message = message,
-            Data = data
-        });
+        await LogAsync("WARN", message, data);
     }
-
+    
     /// <summary>
-    /// Logs a warning message.
+    /// Log error message
     /// </summary>
-    /// <param name="message">The warning message to log.</param>
-    /// <param name="data">Optional warning context.</param>
-    /// <example>
-    /// <code>
-    /// logger.Warn("API rate limit approaching", new { remaining = 10 });
-    /// </code>
-    /// </example>
-    public void Warn(string message, object? data = null)
+    public async Task ErrorAsync(string message, object? data = null)
     {
-        Log(new LogRecord
-        {
-            Event = "WARN",
-            Message = message,
-            Data = data
-        });
+        await LogAsync("ERROR", message, data);
     }
-
+    
     /// <summary>
-    /// Logs a debug message.
+    /// Log trace message
     /// </summary>
-    /// <param name="message">The debug message to log.</param>
-    /// <param name="data">Optional debug data.</param>
-    /// <example>
-    /// <code>
-    /// logger.Debug("Cache hit", new { key = "user:123" });
-    /// </code>
-    /// </example>
-    public void Debug(string message, object? data = null)
+    public async Task TraceAsync(string message, object? data = null)
     {
-        Log(new LogRecord
-        {
-            Event = "DEBUG",
-            Message = message,
-            Data = data
-        });
+        await LogAsync("TRACE", message, data);
     }
-
+    
     /// <summary>
-    /// Logs a trace message (most verbose level).
+    /// Log exception
     /// </summary>
-    /// <param name="message">The trace message to log.</param>
-    /// <param name="data">Optional trace data.</param>
-    /// <example>
-    /// <code>
-    /// logger.Trace("Entering function processData", new { args = new[] {1, 2, 3} });
-    /// </code>
-    /// </example>
-    public void Trace(string message, object? data = null)
+    public async Task ExceptionAsync(string message, object? data = null)
     {
-        Log(new LogRecord
-        {
-            Event = "TRACE",
-            Message = message,
-            Data = data
-        });
+        await LogAsync("EXCEPTION", message, data);
     }
-
+    
     /// <summary>
-    /// Logs an exception message.
+    /// Send report with optional image
     /// </summary>
-    /// <param name="message">The exception message to log.</param>
-    /// <param name="data">Optional exception details.</param>
-    /// <example>
-    /// <code>
-    /// logger.Exception("Unhandled error in worker", new { stack = ex.StackTrace });
-    /// </code>
-    /// </example>
-    public void Exception(string message, object? data = null)
+    public async Task ReportAsync(string message, object? data = null, string? imageBase64 = null)
     {
-        Log(new LogRecord
+        var parameters = new Dictionary<string, object>
         {
-            Event = "EXCEPTION",
-            Message = message,
-            Data = data
-        });
+            ["message"] = message
+        };
+        
+        if (data != null)
+            parameters["data"] = data;
+            
+        if (!string.IsNullOrEmpty(imageBase64))
+            parameters["image"] = imageBase64;
+        
+        await _client.SendNotificationAsync("task.report", parameters);
     }
-
+    
     /// <summary>
-    /// Sends a task report with optional data and image.
+    /// Internal logging method
     /// </summary>
-    /// <param name="message">The report message.</param>
-    /// <param name="data">Optional structured data for the report.</param>
-    /// <param name="image">Optional image data (base64 encoded or URL).</param>
-    /// <example>
-    /// <code>
-    /// logger.Report("Analysis complete", new 
-    /// { 
-    ///     accuracy = 0.95,
-    ///     processed = 1000
-    /// }, 
-    /// chartImageBase64);
-    /// </code>
-    /// </example>
-    public void Report(string message, object? data = null, string? image = null)
+    private async Task LogAsync(string eventType, string message, object? data)
     {
-        _rpcClient.SendNotification("task.report", new
+        var parameters = new Dictionary<string, object>
         {
-            message,
-            data,
-            image
-        });
+            ["time"] = DateTime.UtcNow,
+            ["event"] = eventType,
+            ["message"] = message
+        };
+        
+        if (data != null)
+            parameters["data"] = data;
+        
+        await _client.SendNotificationAsync("task.log", parameters);
     }
 }

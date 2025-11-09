@@ -1,392 +1,258 @@
-# EYWA C# Client
+# EYWA C# Client - Dynamic GraphQL-First
 
-[![NuGet](https://img.shields.io/nuget/v/EywaClient.svg)](https://www.nuget.org/packages/EywaClient/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+A clean, dynamic GraphQL-first client for the EYWA platform that stays as close to GraphQL as possible. Built from scratch with a focus on simplicity and GraphQL alignment.
 
-Official .NET client library for [EYWA](https://github.com/neyho/eywa) - an integrated Identity Access Management and Data Modeling platform with GraphQL API generation.
+## 🎯 Core Philosophy
 
-## Features
+- **Dynamic-first**: Uses `Dictionary<string, object>` for all data interchange
+- **GraphQL-native**: Single map arguments that mirror GraphQL schema exactly
+- **Protocol abstraction only**: Abstracts complex S3 upload/download, not query complexity
+- **Zero translation layers**: What you write in GraphQL is what you pass to functions
 
-- 🔄 **JSON-RPC 2.0** - Bidirectional communication over stdin/stdout
-- 📊 **GraphQL Client** - Execute queries and mutations against EYWA datasets
-- 📁 **File Operations** - Stream-based upload/download with S3 backend
-- 📝 **Task Management** - Complete task lifecycle support
-- 📋 **Comprehensive Logging** - Multi-level structured logging (Info, Debug, Warn, Error, Trace, Exception)
-- 🎯 **Strongly Typed** - Full C# type safety with async/await patterns
-- ✅ **Production Ready** - Fully tested with real EYWA server integration
+## 🚀 Quick Start
 
-## Installation
+### Installation
 
 ```bash
 dotnet add package EywaClient
 ```
 
-## Quick Start
-
-### Basic Robot Example
+### Basic Usage
 
 ```csharp
-using EywaClient.Core;
-using EywaClient.Models;
+using EywaClient;
 
-// Initialize client (connects to EYWA via stdin/stdout)
-var client = new JsonRpcClient();
-client.OpenPipe();
+var eywa = new EywaClient.EywaClient();
+eywa.OpenPipe();
 
-// Initialize components
-var taskManager = new TaskManager(client);
-var logger = new Logger(client);
+// Direct GraphQL - the power of dynamic approach!
+var result = await eywa.GraphQLAsync(@"
+    query MyFiles($limit: Int!) {
+        searchFile(_limit: $limit) {
+            euuid name size
+            folder { name path }
+        }
+    }", new Dictionary<string, object> { ["limit"] = 10 });
 
-try
+// Access results dynamically - just like JavaScript!
+var files = (List<object>)result["data"]["searchFile"];
+foreach (Dictionary<string, object> file in files)
 {
-    // Get current task
-    var task = await taskManager.GetTaskAsync();
-    logger.Info("Task started", new { taskId = task.Euuid });
-    
-    // Update status
-    taskManager.UpdateTask(TaskStatus.Processing);
-    
-    // Your robot logic here
-    await DoWork();
-    
-    // Close task successfully
-    logger.Info("Task completed successfully");
-    taskManager.CloseTask(TaskStatus.Success);
-}
-catch (Exception ex)
-{
-    logger.Error("Task failed", new { error = ex.Message });
-    taskManager.CloseTask(TaskStatus.Error);
+    Console.WriteLine($"{file["name"]} - {file["size"]} bytes");
 }
 ```
 
-### GraphQL Example
+### File Operations
 
 ```csharp
-using EywaClient.GraphQL;
-
-var graphqlClient = new GraphQLClient(client);
-
-// Execute a query
-var result = await graphqlClient.ExecuteAsync<SearchUserResponse>(@"
-    query {
-        searchUser(_limit: 10) {
-            euuid
-            name
-            email
-        }
-    }
-");
-
-foreach (var user in result.Data.SearchUser)
+// Upload with GraphQL-aligned parameters
+await eywa.Files.UploadAsync("document.pdf", new Dictionary<string, object>
 {
-    Console.WriteLine($"{user.Name}: {user.Email}");
-}
+    ["euuid"] = Guid.NewGuid().ToString(), // Client-controlled UUID
+    ["name"] = "important.pdf",
+    ["folder"] = new Dictionary<string, object> { ["euuid"] = eywa.Files.RootUuid },
+    ["content_type"] = "application/pdf"
+});
 
-// Execute a mutation
-var createResult = await graphqlClient.MutateAsync<CreateUserResponse>(@"
-    mutation CreateUser($user: UserInput!) {
-        stackUser(data: $user) {
-            euuid
-            name
-        }
-    }
-", new { 
-    user = new { 
-        name = "John Doe", 
-        email = "john@example.com" 
-    } 
+// Download as stream
+var stream = await eywa.Files.DownloadStreamAsync("file-uuid");
+
+// Create folder
+await eywa.Files.CreateFolderAsync(new Dictionary<string, object>
+{
+    ["name"] = "Reports", 
+    ["parent"] = new Dictionary<string, object> { ["euuid"] = eywa.Files.RootUuid }
 });
 ```
 
-### Logging Examples
+## 📋 Complete FILES_SPEC.md Implementation
 
-```csharp
-var logger = new Logger(client);
+Implements all 8 core functions from the specification:
 
-// Simple logging
-logger.Info("Processing started");
-logger.Debug("Detailed debug information");
-logger.Warn("Warning message");
-logger.Error("Error occurred");
-logger.Trace("Trace-level details");
+### Upload Operations
+- `UploadAsync(filepath, fileData)` - Upload from file path
+- `UploadStreamAsync(stream, fileData)` - Upload from stream  
+- `UploadContentAsync(content, fileData)` - Upload string/bytes directly
 
-// Structured logging with data
-logger.Info("User created", new
-{
-    userId = Guid.NewGuid(),
-    username = "john.doe",
-    timestamp = DateTime.Now
-});
+### Download Operations
+- `DownloadStreamAsync(fileUuid)` - Download as stream
+- `DownloadAsync(fileUuid)` - Download as byte array
 
-// Exception logging
-try
-{
-    // ... code that might fail
-}
-catch (Exception ex)
-{
-    logger.Exception("Operation failed", new
-    {
-        exceptionType = ex.GetType().Name,
-        message = ex.Message,
-        stackTrace = ex.StackTrace
-    });
-}
+### CRUD Operations
+- `CreateFolderAsync(folderData)` - Create folder
+- `DeleteFileAsync(fileUuid)` - Delete file
+- `DeleteFolderAsync(folderUuid)` - Delete empty folder
 
-// Task reporting with rich data
-logger.Report("Monthly report generated", new
-{
-    reportId = Guid.NewGuid(),
-    recordsProcessed = 1500,
-    duration = TimeSpan.FromMinutes(5),
-    status = "completed"
-});
-```
+### Constants
+- `Files.RootUuid` - Root folder UUID constant
+- `Files.RootFolder` - Root folder object for GraphQL
 
-## Running Your Robot
+### Exception Types
+- `FileUploadError` - Upload operation errors
+- `FileDownloadError` - Download operation errors
 
-### Via EYWA CLI
-
-```bash
-# Run your C# robot via EYWA
-eywa run -c "dotnet run --project MyRobot.csproj"
-
-# Or as a compiled executable
-eywa run -c "./MyRobot"
-```
-
-### Project Setup
-
-Create a console application:
-
-```bash
-dotnet new console -n MyRobot
-cd MyRobot
-dotnet add package EywaClient
-```
-
-Your `Program.cs`:
-
-```csharp
-using EywaClient.Core;
-using EywaClient.Models;
-
-class Program
-{
-    static async Task Main(string[] args)
-    {
-        var client = new JsonRpcClient();
-        client.OpenPipe();
-        
-        var taskManager = new TaskManager(client);
-        var logger = new Logger(client);
-        
-        try
-        {
-            var task = await taskManager.GetTaskAsync();
-            logger.Info("Robot started");
-            
-            taskManager.UpdateTask(TaskStatus.Processing);
-            
-            // Your robot logic here
-            
-            taskManager.CloseTask(TaskStatus.Success);
-        }
-        catch (Exception ex)
-        {
-            logger.Error("Robot failed", new { error = ex.Message });
-            taskManager.CloseTask(TaskStatus.Error);
-        }
-    }
-}
-```
-
-## API Overview
+## 🎨 API Design
 
 ### Core Components
 
-#### JsonRpcClient
-Low-level JSON-RPC 2.0 communication over stdin/stdout.
-
 ```csharp
-var client = new JsonRpcClient();
-client.OpenPipe();
+var eywa = new EywaClient.EywaClient();
 
-// Send request and await response
-var result = await client.SendRequestAsync<MyResponse>("method.name", parameters);
+// GraphQL operations
+var result = await eywa.GraphQLAsync(query, variables);
 
-// Send notification (fire-and-forget)
-client.SendNotification("method.name", parameters);
+// File operations (FILES_SPEC.md compliant)
+await eywa.Files.UploadAsync(...);
+var stream = await eywa.Files.DownloadStreamAsync(...);
 
-// Register handler for incoming requests
-client.RegisterHandler("method.name", (parameters) => {
-    // Handle incoming request
-    return responseData;
-});
+// Task management
+await eywa.Tasks.UpdateTaskAsync(TaskStatus.Processing);
+await eywa.Tasks.CloseTaskAsync(TaskStatus.Success);
+
+// Structured logging
+await eywa.Logger.InfoAsync("Message", data);
 ```
 
-#### TaskManager
-Manage EYWA task lifecycle.
+### Dynamic Data Structures
+
+Everything uses `Dictionary<string, object>` to mirror GraphQL exactly:
 
 ```csharp
-var taskManager = new TaskManager(client);
-
-// Get current task information
-var task = await taskManager.GetTaskAsync();
-
-// Update task status
-taskManager.UpdateTask(TaskStatus.Processing);
-
-// Close task with final status
-taskManager.CloseTask(TaskStatus.Success);
-
-// Return control to EYWA (without closing)
-taskManager.ReturnTask();
-```
-
-#### Logger
-Multi-level structured logging.
-
-```csharp
-var logger = new Logger(client);
-
-// Log levels
-logger.Info("message", data);
-logger.Debug("message", data);
-logger.Warn("message", data);
-logger.Error("message", data);
-logger.Trace("message", data);
-logger.Exception("message", data);
-
-// Task reporting
-logger.Report("message", data, imageBase64);
-```
-
-#### GraphQLClient
-Execute GraphQL operations.
-
-```csharp
-var graphqlClient = new GraphQLClient(client);
-
-// Execute query
-var result = await graphqlClient.ExecuteAsync<T>(query, variables);
-
-// Semantic methods
-var queryResult = await graphqlClient.QueryAsync<T>(query, variables);
-var mutationResult = await graphqlClient.MutateAsync<T>(mutation, variables);
-
-// Batch operations
-var results = await graphqlClient.ExecuteBatchAsync(
-    (query1, vars1),
-    (query2, vars2),
-    (query3, vars3)
-);
-```
-
-## Task Statuses
-
-```csharp
-public enum TaskStatus
+// ✅ This (GraphQL-native)
+var fileData = new Dictionary<string, object>
 {
-    Success,      // Task completed successfully
-    Error,        // Task failed
-    Processing,   // Task is being processed
-    Exception     // Task encountered an exception
+    ["euuid"] = "my-uuid",
+    ["name"] = "document.pdf",
+    ["folder"] = new Dictionary<string, object> { ["euuid"] = "folder-uuid" },
+    ["content_type"] = "application/pdf"
+};
+
+// ❌ Not this (forced typing)
+var fileData = new FileInput 
+{ 
+    Euuid = "my-uuid",
+    Name = "document.pdf",
+    Folder = new FolderReference { Euuid = "folder-uuid" }
+};
+```
+
+## 🔄 Complete Robot Example
+
+```csharp
+using EywaClient;
+
+class MyRobot
+{
+    static async Task Main(string[] args)
+    {
+        var eywa = new EywaClient.EywaClient();
+        
+        try
+        {
+            eywa.OpenPipe();
+            
+            var task = await eywa.Tasks.GetTaskAsync();
+            await eywa.Logger.InfoAsync("Robot started", new { taskId = task["euuid"] });
+            
+            await eywa.Tasks.UpdateTaskAsync(TaskStatus.Processing);
+            
+            // Your robot logic here using direct GraphQL
+            var data = await eywa.GraphQLAsync(@"
+                query ProcessableData {
+                    searchFile(_where: {status: {_eq: ""UPLOADED""}}) {
+                        euuid name
+                    }
+                }");
+            
+            await eywa.Logger.InfoAsync("Robot completed successfully");
+            await eywa.Tasks.CloseTaskAsync(TaskStatus.Success);
+        }
+        catch (Exception ex)
+        {
+            await eywa.Logger.ErrorAsync("Robot failed", new { error = ex.Message });
+            await eywa.Tasks.CloseTaskAsync(TaskStatus.Error);
+        }
+        finally
+        {
+            eywa.Dispose();
+        }
+    }
 }
 ```
 
-## Requirements
+## 🏃‍♂️ Running Your Robot
+
+```bash
+# Via EYWA CLI
+eywa run -c "dotnet run --project MyRobot.csproj"
+```
+
+## 🛠 Project Structure
+
+```
+src/EywaClient/
+├── Core/
+│   ├── JsonRpcClient.cs      # Clean JSON-RPC over stdin/stdout
+│   ├── TaskManager.cs        # Simple task lifecycle
+│   └── Logger.cs             # Structured logging
+├── Files/
+│   ├── FilesClient.cs        # 8 core functions from FILES_SPEC.md
+│   ├── FileExceptions.cs     # FileUploadError, FileDownloadError
+│   └── FileConstants.cs      # ROOT_UUID, ROOT_FOLDER
+├── Utils/
+│   ├── MimeTypeDetector.cs   # Simple MIME detection
+│   └── HttpS3Client.cs       # S3 protocol utilities
+└── EywaClient.cs            # Main entry point
+```
+
+## ✨ Key Benefits
+
+1. **No "impedance mismatch"** - C# maps directly mirror GraphQL
+2. **Future-proof** - New GraphQL features work immediately  
+3. **Simple to maintain** - Less code, no complex type mappings
+4. **Natural for C# developers** - `Dictionary<string, object>` is familiar
+5. **Follows FILES_SPEC.md exactly** - Protocol abstraction, not query abstraction
+
+## 🆚 vs. Traditional Approach
+
+### This Dynamic Approach ✅
+```csharp
+// Write GraphQL directly
+var result = await eywa.GraphQLAsync(@"
+    query UserFiles($userId: UUID!, $type: String!) {
+        searchFile(_where: {
+            _and: [
+                {uploaded_by: {euuid: {_eq: $userId}}},
+                {content_type: {_ilike: $type}}
+            ]
+        }, _order_by: {uploaded_at: desc}) {
+            euuid name size uploaded_at
+            folder { name }
+        }
+    }", new { userId = "uuid", type = "image/%" });
+```
+
+### Traditional Typed Approach ❌
+```csharp
+// Complex query builder
+var files = await client.Files
+    .Where(f => f.UploadedBy.Euuid == userId)
+    .Where(f => f.ContentType.StartsWith("image/"))
+    .OrderByDescending(f => f.UploadedAt)
+    .Include(f => f.Folder)
+    .ToListAsync();
+```
+
+## 🔧 Requirements
 
 - **.NET 9.0** or later
 - **EYWA Server** running and accessible
 - **EYWA CLI** for executing robots
 
-## Documentation
+## 📝 License
 
-- **EYWA Documentation:** https://neyho.github.io/eywa/
-- **GitHub Repository:** https://github.com/neyho/eywa
-- **Examples:** https://github.com/neyho/eywa-examples
-
-## Advanced Features
-
-### Custom Request Handlers
-
-Handle incoming requests from EYWA:
-
-```csharp
-client.RegisterHandler("custom.method", (parameters) =>
-{
-    // Process the request
-    var data = JsonSerializer.Deserialize<MyData>(parameters);
-    
-    // Return response
-    return new { result = "success", data = processedData };
-});
-```
-
-### GraphQL with Variables
-
-```csharp
-var result = await graphqlClient.ExecuteAsync<GetUserResponse>(@"
-    query GetUser($id: UUID!) {
-        getUser(euuid: $id) {
-            euuid
-            name
-            email
-        }
-    }
-", new { id = "user-uuid-here" });
-```
-
-### Error Handling
-
-```csharp
-try
-{
-    var result = await graphqlClient.ExecuteAsync<T>(query);
-}
-catch (GraphQLException ex)
-{
-    // Handle GraphQL-specific errors
-    foreach (var error in ex.Errors)
-    {
-        Console.WriteLine($"GraphQL Error: {error.Message}");
-    }
-}
-catch (JsonRpcException ex)
-{
-    // Handle JSON-RPC errors
-    Console.WriteLine($"RPC Error: {ex.Code} - {ex.Message}");
-}
-```
-
-## Testing
-
-The library includes comprehensive integration tests that run against a real EYWA server:
-
-```bash
-# Run integration tests via EYWA
-eywa run -c "dotnet run --project tests/EywaClient.IntegrationTests"
-```
-
-## Contributing
-
-Contributions are welcome! Please see the [EYWA repository](https://github.com/neyho/eywa) for contribution guidelines.
-
-## License
-
-MIT License - see [LICENSE](https://github.com/neyho/eywa/blob/master/LICENSE) for details.
-
-## Support
-
-- **Issues:** https://github.com/neyho/eywa/issues
-- **Email:** robi@neyho.com
-
-## About EYWA
-
-EYWA is a platform that combines Identity Access Management (OAuth2.1/OIDC) with deployable data modeling. Once you model and deploy your data, EYWA automatically generates GraphQL queries and mutations, enabling rapid application development with built-in authentication and authorization.
+MIT License - Built for the EYWA ecosystem with ❤️
 
 ---
 
-**Built with ❤️ for the EYWA ecosystem**
+**This is a clean-slate implementation that embraces C#'s dynamic capabilities while staying true to GraphQL's flexible nature.**

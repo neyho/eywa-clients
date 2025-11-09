@@ -1,81 +1,37 @@
-# Build results
-[Dd]ebug/
-[Dd]ebugPublic/
-[Rr]elease/
-[Rr]eleases/
-x64/
-x86/
-[Ww][Ii][Nn]32/
-[Aa][Rr][Mm]/
-[Aa][Rr][Mm]64/
-bld/
-[Bb]in/
-[Oo]bj/
-[Ll]og/
-[Ll]ogs/
+# .NET Build outputs
+bin/
+obj/
+out/
 
-# Visual Studio cache/options
-.vs/
-.vscode/
+# NuGet packages
+*.nupkg
+*.snupkg
+nupkg/
+
+# User-specific files
+*.suo
 *.user
 *.userosscache
 *.sln.docstates
 
-# ReSharper
-_ReSharper*/
-*.[Rr]e[Ss]harper
-*.DotSettings.user
+# Visual Studio
+.vs/
+*.vscode/
 
 # JetBrains Rider
 .idea/
 *.sln.iml
 
-# NuGet
-*.nupkg
-*.snupkg
-**/packages/*
-!**/packages/build/
-*.nuget.props
-*.nuget.targets
+# Debug files
+*.pdb
 
-# Test Results
-[Tt]est[Rr]esult*/
-[Bb]uild[Ll]og.*
-*.trx
-*.coverage
-*.coveragexml
-
-# NCrunch
-_NCrunch_*
-.*crunch*.local.xml
-nCrunchTemp_*
-
-# Visual Studio profiler
-*.psess
-*.vsp
-*.vspx
-*.sap
-
-# .NET Core
-project.lock.json
-project.fragment.lock.json
-artifacts/
-
-# ASP.NET Scaffolding
-ScaffoldingReadMe.txt
-
-# macOS
+# OS generated files
 .DS_Store
-.AppleDouble
-.LSOverride
-
-# Windows
 Thumbs.db
-ehthumbs.db
-Desktop.ini
-$RECYCLE.BIN/
 
-# Backup files
-*.bak
+# Logs
+*.log
+
+# Temporary files
 *.tmp
-*~
+*.temp

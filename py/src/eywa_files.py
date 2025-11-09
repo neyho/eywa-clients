@@ -1,24 +1,23 @@
 """
-EYWA File Operations - Modernized Python Client
+EYWA File Operations - Simplified Protocol-Focused Client
 
-This module provides comprehensive file upload/download capabilities
-for the EYWA Python client, following the FILES_SPEC.md requirements
-and matching the Babashka client patterns:
-
-- Single map arguments that mirror GraphQL schema
-- Client-controlled UUID management
-- Modern GraphQL relationship filtering
-- Complete folder operations support
-- Streaming uploads/downloads with progress tracking
+This module provides file upload/download protocol abstraction for the EYWA Python client.
+It focuses on handling the complex 3-step S3 protocol while letting users write their own
+GraphQL queries for data retrieval.
 
 Key Features:
 - 3-step upload protocol (request URL → S3 upload → confirm)
 - Memory-efficient streaming for large files
-- Comprehensive error handling with typed exceptions
-- Full folder hierarchy support
-- Progress callbacks for all operations
+- Simple CRUD mutations for folders and files
+- Direct GraphQL usage for all queries
 
-Version: 2.0.0 (Modernized)
+Users should use eywa.graphql() directly for:
+- Listing files/folders
+- Searching/filtering
+- Getting file/folder information
+- Complex relationship queries
+
+Version: 2.0.0 (Simplified)
 """
 
 import asyncio
@@ -29,10 +28,8 @@ import os
 import ssl
 from pathlib import Path
 from typing import Optional, Union, Dict, Any, List, Callable, AsyncIterator
-# Note: eywa module imported dynamically to avoid circular dependency
 
 # Disable SSL verification for development/testing
-# TODO: Remove this for production use
 ssl_context = ssl.create_default_context()
 ssl_context.check_hostname = False
 ssl_context.verify_mode = ssl.CERT_NONE
@@ -46,10 +43,10 @@ async def _graphql(query, variables=None):
         raise Exception(f"Could not call eywa.graphql: {e}. Make sure eywa module is imported and eywa.open_pipe() has been called.")
 
 # ============================================================================
-# Constants and Exception Types (Per FILES_SPEC.md)
+# Constants and Exception Types
 # ============================================================================
 
-# Root folder constants (matching Babashka client)
+# Root folder constants
 ROOT_UUID = "87ce50d8-5dfa-4008-a265-053e727ab793"
 ROOT_FOLDER = {"euuid": ROOT_UUID}
 
@@ -226,19 +223,19 @@ async def _download_to_bytes(url: str) -> Dict[str, Any]:
 
 
 # ============================================================================
-# Core Upload Operations (Following Babashka Pattern)
+# Core Upload Operations (Protocol Abstraction)
 # ============================================================================
 
 async def upload(filepath: Union[str, Path], file_data: Dict[str, Any]) -> None:
     """
-    Upload a file to EYWA file service.
+    Upload a file to EYWA using the 3-step protocol.
     
     Args:
         filepath: Path to the file to upload (string or Path object)
-        file_data: Dict matching GraphQL FileInput type:
+        file_data: Dict with file metadata:
+            euuid: str (optional, auto-generated if not provided)
             name: str (optional, defaults to filename)
-            euuid: str (optional, client-generated UUID for deduplication)
-            folder: dict (optional, {"euuid": "..."} or {"path": "..."})
+            folder: dict (optional, {\"euuid\": \"...\"} or {\"path\": \"...\"})
             content_type: str (optional, auto-detected if not provided)
             size: int (optional, auto-calculated from file)
             progress_fn: callable (optional, not sent to GraphQL)
@@ -250,23 +247,14 @@ async def upload(filepath: Union[str, Path], file_data: Dict[str, Any]) -> None:
         FileUploadError: If upload fails at any stage
         
     Examples:
-        # Upload new file to root
-        await upload("test.txt", {"name": "test.txt"})
+        # Simple upload
+        await upload(\"test.txt\", {\"name\": \"test.txt\"})
         
         # Upload to folder with client UUID
-        await upload("test.txt", {
-            "name": "test.txt",
-            "euuid": "client-generated-uuid",
-            "folder": {"euuid": "folder-uuid"}
-        })
-        
-        # Upload with progress tracking
-        def progress(current, total):
-            print(f"Progress: {current}/{total} ({current/total*100:.1f}%)")
-            
-        await upload("test.txt", {
-            "name": "test.txt", 
-            "progress_fn": progress
+        await upload(\"test.txt\", {
+            \"euuid\": str(uuid.uuid4()),
+            \"name\": \"test.txt\",
+            \"folder\": {\"euuid\": folder_uuid}
         })
     """
     try:
@@ -283,6 +271,10 @@ async def upload(filepath: Union[str, Path], file_data: Dict[str, Any]) -> None:
         file_name = file_data.get('name') or file_path.name
         detected_content_type = file_data.get('content_type') or _detect_mime_type(file_name)
         
+        # Generate UUID if not provided
+        import uuid
+        file_uuid = file_data.get('euuid') or str(uuid.uuid4())
+        
         # Step 1: Request upload URL
         upload_query = """
         mutation RequestUpload($file: FileInput!) {
@@ -290,9 +282,10 @@ async def upload(filepath: Union[str, Path], file_data: Dict[str, Any]) -> None:
         }
         """
         
-        # Build GraphQL input - use file_data directly, fill in computed values
+        # Build GraphQL input
         file_input = {
             **file_data,
+            'euuid': file_uuid,
             'name': file_name,
             'content_type': detected_content_type,
             'size': file_size
@@ -350,35 +343,23 @@ async def upload(filepath: Union[str, Path], file_data: Dict[str, Any]) -> None:
 
 async def upload_stream(input_stream: AsyncIterator[bytes], file_data: Dict[str, Any]) -> None:
     """
-    Upload data from an async stream to EYWA file service.
+    Upload data from an async stream using the 3-step protocol.
     
     Args:
         input_stream: AsyncIterator[bytes] - Stream of file data
-        file_data: Dict matching GraphQL FileInput type:
+        file_data: Dict with file metadata:
             name: str (required)
             size: int (required for streams)
-            euuid: str (optional, client-generated UUID)
-            folder: dict (optional, {"euuid": "..."} or {"path": "..."})
+            euuid: str (optional, auto-generated)
+            folder: dict (optional, {\"euuid\": \"...\"} or {\"path\": \"...\"}
             content_type: str (optional, default: application/octet-stream)
-            progress_fn: callable (optional, not sent to GraphQL)
+            progress_fn: callable (optional)
     
     Returns:
         None on success
         
     Raises:
         FileUploadError: If upload fails at any stage
-        
-    Examples:
-        # Upload from async iterator
-        async def data_generator():
-            for i in range(100):
-                yield f"Line {i}\n".encode()
-        
-        await upload_stream(data_generator(), {
-            "name": "generated.txt",
-            "size": 800,  # Must calculate size beforehand
-            "content_type": "text/plain"
-        })
     """
     try:
         if not file_data.get('name'):
@@ -390,6 +371,10 @@ async def upload_stream(input_stream: AsyncIterator[bytes], file_data: Dict[str,
         content_length = file_data['size']
         progress_fn = file_data.get('progress_fn')
         
+        # Generate UUID if not provided
+        import uuid
+        file_uuid = file_data.get('euuid') or str(uuid.uuid4())
+        
         # Step 1: Request upload URL
         upload_query = """
         mutation RequestUpload($file: FileInput!) {
@@ -400,6 +385,7 @@ async def upload_stream(input_stream: AsyncIterator[bytes], file_data: Dict[str,
         # Build GraphQL input
         file_input = {
             **file_data,
+            'euuid': file_uuid,
             'content_type': content_type
         }
         file_input.pop('progress_fn', None)
@@ -454,39 +440,23 @@ async def upload_stream(input_stream: AsyncIterator[bytes], file_data: Dict[str,
 
 async def upload_content(content: Union[str, bytes], file_data: Dict[str, Any]) -> None:
     """
-    Upload content directly from memory.
+    Upload content directly from memory using the 3-step protocol.
     
     Args:
         content: String or bytes content to upload
-        file_data: Dict matching GraphQL FileInput type:
+        file_data: Dict with file metadata:
             name: str (required)
-            euuid: str (optional, client-generated UUID)
-            folder: dict (optional, {"euuid": "..."} or {"path": "..."})
-            content_type: str (optional, default: text/plain for strings, application/octet-stream for bytes)
+            euuid: str (optional, auto-generated)
+            folder: dict (optional, {\"euuid\": \"...\"} or {\"path\": \"...\"}
+            content_type: str (optional, default: text/plain for strings)
             size: int (optional, auto-calculated from content)
-            progress_fn: callable (optional, not sent to GraphQL)
+            progress_fn: callable (optional)
     
     Returns:
         None on success
         
     Raises:
         FileUploadError: If upload fails at any stage
-        
-    Examples:
-        # Upload string content
-        await upload_content("Hello World!", {
-            "name": "greeting.txt",
-            "content_type": "text/plain"
-        })
-        
-        # Upload JSON data
-        import json
-        data = {"key": "value"}
-        await upload_content(json.dumps(data), {
-            "name": "data.json",
-            "content_type": "application/json",
-            "folder": {"euuid": "folder-uuid"}
-        })
     """
     try:
         if not file_data.get('name'):
@@ -504,6 +474,10 @@ async def upload_content(content: Union[str, bytes], file_data: Dict[str, Any]) 
         content_type = file_data.get('content_type', default_content_type)
         progress_fn = file_data.get('progress_fn')
         
+        # Generate UUID if not provided
+        import uuid
+        file_uuid = file_data.get('euuid') or str(uuid.uuid4())
+        
         # Step 1: Request upload URL
         upload_query = """
         mutation RequestUpload($file: FileInput!) {
@@ -514,6 +488,7 @@ async def upload_content(content: Union[str, bytes], file_data: Dict[str, Any]) 
         # Build GraphQL input
         file_input = {
             **file_data,
+            'euuid': file_uuid,
             'content_type': content_type,
             'size': file_size
         }
@@ -562,7 +537,7 @@ async def upload_content(content: Union[str, bytes], file_data: Dict[str, Any]) 
 
 
 # ============================================================================
-# Core Download Operations
+# Core Download Operations (Protocol Abstraction)
 # ============================================================================
 
 class _BytesStream:
@@ -589,10 +564,7 @@ class _BytesStream:
 
 async def download_stream(file_uuid: str) -> Dict[str, Any]:
     """
-    Download a file from EYWA and return a stream for memory-efficient processing.
-    
-    Note: Currently downloads entire file to memory then streams it.
-    This ensures reliability while maintaining streaming interface.
+    Download a file and return a stream for memory-efficient processing.
     
     Args:
         file_uuid: UUID of the file to download
@@ -601,16 +573,9 @@ async def download_stream(file_uuid: str) -> Dict[str, Any]:
         Dict containing:
             stream: AsyncIterator[bytes] - Stream of file content in chunks
             content_length: int - Content length in bytes
-            status: str - Always "success" if no exception
             
     Raises:
         FileDownloadError: If download fails
-        
-    Examples:
-        # Download and process in chunks
-        result = await download_stream(file_uuid)
-        async for chunk in result["stream"]:
-            process_chunk(chunk)
     """
     try:
         # Step 1: Request download URL
@@ -642,8 +607,7 @@ async def download_stream(file_uuid: str) -> Dict[str, Any]:
         
         return {
             "stream": stream,
-            "content_length": len(content),
-            "status": "success"
+            "content_length": len(content)
         }
         
     except FileDownloadError:
@@ -655,7 +619,7 @@ async def download_stream(file_uuid: str) -> Dict[str, Any]:
 async def download(file_uuid: str, save_path: Optional[Union[str, Path]] = None, 
                   progress_fn: Optional[Callable] = None) -> Union[str, bytes]:
     """
-    Download a file from EYWA file service.
+    Download a file from EYWA.
     
     Args:
         file_uuid: UUID of the file to download
@@ -668,16 +632,6 @@ async def download(file_uuid: str, save_path: Optional[Union[str, Path]] = None,
         
     Raises:
         FileDownloadError: If download fails
-        
-    Examples:
-        # Download to memory
-        content = await download(file_uuid)
-        
-        # Download to file with progress
-        def progress(current, total):
-            print(f"Downloaded: {current}/{total} bytes")
-            
-        saved_path = await download(file_uuid, "local_file.txt", progress)
     """
     try:
         # Step 1: Request download URL
@@ -743,41 +697,38 @@ async def download(file_uuid: str, save_path: Optional[Union[str, Path]] = None,
 
 
 # ============================================================================
-# File Management Operations
+# Simple CRUD Operations
 # ============================================================================
 
-async def file_info(file_uuid: str) -> Optional[Dict[str, Any]]:
+async def create_folder(folder_data: Dict[str, Any]) -> Dict[str, Any]:
     """
-    Get detailed information about a file.
+    Create a new folder.
     
     Args:
-        file_uuid: UUID of the file
-        
+        folder_data: Dict with folder definition:
+            name: str (required)
+            euuid: str (optional, auto-generated)
+            parent: dict (optional, {\"euuid\": \"...\"} for parent, omit for root)
+    
     Returns:
-        File information dict if found, None if not found
+        Created folder information dict
         
     Raises:
-        Exception: If GraphQL query fails (network error, etc.)
-        
-    Examples:
-        info = await file_info(file_uuid)
-        if info:
-            print(f"File: {info['name']} ({info['size']} bytes)")
+        Exception: If folder creation fails
     """
     try:
-        query = """
-        query GetFile($uuid: UUID!) {
-            getFile(euuid: $uuid) {
+        # Generate UUID if not provided
+        import uuid
+        folder_uuid = folder_data.get('euuid') or str(uuid.uuid4())
+        
+        mutation = """
+        mutation CreateFolder($folder: FolderInput!) {
+            stackFolder(data: $folder) {
                 euuid
                 name
-                status
-                content_type
-                size
-                uploaded_at
-                uploaded_by {
-                    name
-                }
-                folder {
+                path
+                modified_on
+                parent {
                     euuid
                     name
                     path
@@ -786,111 +737,18 @@ async def file_info(file_uuid: str) -> Optional[Dict[str, Any]]:
         }
         """
         
-        result = await _graphql(query, {"uuid": file_uuid})
+        # Build GraphQL input
+        folder_input = {
+            **folder_data,
+            'euuid': folder_uuid
+        }
+        
+        result = await _graphql(mutation, {"folder": folder_input})
         
         if result.get('error'):
-            raise Exception(f"Failed to get file info: {result['error']}")
+            raise Exception(f"Failed to create folder: {result['error']}")
         
-        return result.get('data', {}).get('getFile')
-        
-    except Exception as e:
-        raise e
-
-
-async def list(filters: Dict[str, Any]) -> List[Dict[str, Any]]:
-    """
-    List files with modern GraphQL filtering support.
-    
-    Args:
-        filters: Dict of filter criteria:
-            limit: int (optional, max results)
-            status: str (optional, filter by status like "UPLOADED")
-            name: str (optional, SQL LIKE pattern)
-            folder: dict (optional, {"euuid": "..."} or {"path": "..."})
-    
-    Returns:
-        List of file dicts (empty if no matches)
-        
-    Raises:
-        Exception: If GraphQL query fails
-        
-    Examples:
-        # List all files
-        files = await list({})
-        
-        # List files by folder UUID
-        files = await list({"folder": {"euuid": folder_uuid}})
-        
-        # List files by folder path with name filter
-        files = await list({
-            "folder": {"path": "/documents/"},
-            "name": "report",
-            "limit": 10
-        })
-    """
-    try:
-        folder_filter = filters.get('folder')
-        
-        # Build relationship filter using modern GraphQL patterns
-        folder_where_clause = ""
-        if folder_filter:
-            if 'euuid' in folder_filter:
-                euuid_val = folder_filter['euuid']
-                folder_where_clause = f'(_where: {{euuid: {{_eq: "{euuid_val}"}}}})'
-            elif 'path' in folder_filter:
-                path_val = folder_filter['path']
-                folder_where_clause = f'(_where: {{path: {{_eq: "{path_val}"}}}})'
-            else:
-                raise ValueError("Invalid folder filter - must be {'euuid': '...'} or {'path': '...'}")
-        
-        # Dynamic query with relationship filtering
-        query = f"""
-        query ListFiles($limit: Int, $where: searchFileOperator) {{
-            searchFile(_limit: $limit, _where: $where, _order_by: {{uploaded_at: desc}}) {{
-                euuid
-                name
-                status
-                content_type
-                size
-                uploaded_at
-                uploaded_by {{
-                    name
-                }}
-                folder{folder_where_clause} {{
-                    euuid
-                    name
-                    path
-                }}
-            }}
-        }}
-        """
-        
-        # Build file-level WHERE conditions
-        where_conditions = []
-        
-        if filters.get('status'):
-            where_conditions.append({"status": {"_eq": filters['status']}})
-        
-        if filters.get('name'):
-            where_conditions.append({"name": {"_ilike": f"%{filters['name']}%"}})
-        
-        variables = {}
-        if filters.get('limit'):
-            variables['limit'] = filters['limit']
-        
-        if where_conditions:
-            if len(where_conditions) == 1:
-                variables['where'] = where_conditions[0]
-            else:
-                variables['where'] = {"_and": where_conditions}
-        
-        result = await _graphql(query, variables)
-        
-        if result.get('error'):
-            raise Exception(f"Failed to list files: {result['error']}")
-        
-        files = result.get('data', {}).get('searchFile')
-        return files or []  # Handle null result when folder filtering returns no matches
+        return result.get('data', {}).get('stackFolder')
         
     except Exception as e:
         raise e
@@ -898,18 +756,13 @@ async def list(filters: Dict[str, Any]) -> List[Dict[str, Any]]:
 
 async def delete_file(file_uuid: str) -> bool:
     """
-    Delete a file from EYWA file service.
+    Delete a file from EYWA.
     
     Args:
         file_uuid: UUID of the file to delete
         
     Returns:
         True if deletion successful, False otherwise
-        
-    Examples:
-        success = await delete_file(file_uuid)
-        if success:
-            print("File deleted successfully")
     """
     try:
         mutation = """
@@ -929,227 +782,9 @@ async def delete_file(file_uuid: str) -> bool:
         raise e
 
 
-# ============================================================================
-# Folder Operations (Complete Support Per FILES_SPEC.md)
-# ============================================================================
-
-async def create_folder(folder_data: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Create a new folder in EYWA file service.
-    
-    Args:
-        folder_data: Dict matching GraphQL FolderInput type:
-            name: str (required)
-            euuid: str (optional, client-generated UUID)
-            parent: dict (optional, {"euuid": "..."} for parent, omit for root)
-    
-    Returns:
-        Created folder information dict
-        
-    Raises:
-        Exception: If folder creation fails
-        
-    Examples:
-        # Create folder in root
-        folder = await create_folder({
-            "name": "my-documents",
-            "euuid": str(uuid.uuid4())
-        })
-        
-        # Create subfolder
-        subfolder = await create_folder({
-            "name": "reports", 
-            "parent": {"euuid": parent_folder_uuid}
-        })
-    """
-    try:
-        mutation = """
-        mutation CreateFolder($folder: FolderInput!) {
-            stackFolder(data: $folder) {
-                euuid
-                name
-                path
-                modified_on
-                parent {
-                    euuid
-                    name
-                    path
-                }
-            }
-        }
-        """
-        
-        result = await _graphql(mutation, {"folder": folder_data})
-        
-        if result.get('error'):
-            raise Exception(f"Failed to create folder: {result['error']}")
-        
-        return result.get('data', {}).get('stackFolder')
-        
-    except Exception as e:
-        raise e
-
-
-async def list_folders(filters: Dict[str, Any]) -> List[Dict[str, Any]]:
-    """
-    List folders with parent filtering support.
-    
-    Args:
-        filters: Dict of filter criteria:
-            limit: int (optional, max results)
-            name: str (optional, SQL LIKE pattern)
-            parent: dict|None (optional)
-                {"euuid": "..."} - filter by parent UUID
-                {"path": "..."} - filter by parent path  
-                None - filter for root-level folders (parent=ROOT_UUID)
-                (omit key entirely - no parent filtering)
-    
-    Returns:
-        List of folder dicts
-        
-    Examples:
-        # List all folders
-        folders = await list_folders({})
-        
-        # List root-level folders only (folders under ROOT_UUID)
-        root_folders = await list_folders({"parent": None})
-        
-        # List folders by parent UUID
-        subfolders = await list_folders({"parent": {"euuid": parent_uuid}})
-        
-        # List folders with name pattern
-        folders = await list_folders({"name": "report"})
-    """
-    try:
-        query = """
-        query ListFolders($limit: Int, $where: searchFolderOperator) {
-            searchFolder(_limit: $limit, _where: $where, _order_by: {name: asc}) {
-                euuid
-                name
-                path
-                modified_on
-                parent {
-                    euuid
-                    name
-                }
-            }
-        }
-        """
-        
-        where_conditions = []
-        
-        # Handle name filter
-        if filters.get('name'):
-            where_conditions.append({"name": {"_ilike": f"%{filters['name']}%"}})
-        
-        # Handle parent filter (CORRECTED: root folders have parent=ROOT_UUID, not null)
-        if 'parent' in filters:
-            parent_filter = filters['parent']
-            if parent_filter is None:
-                # Root folders only - folders whose parent is ROOT_UUID (not null!)
-                where_conditions.append({"parent": {"euuid": {"_eq": ROOT_UUID}}})
-            elif isinstance(parent_filter, dict):
-                if 'euuid' in parent_filter:
-                    where_conditions.append({"parent": {"euuid": {"_eq": parent_filter['euuid']}}})
-                elif 'path' in parent_filter:
-                    where_conditions.append({"parent": {"path": {"_eq": parent_filter['path']}}})
-                else:
-                    raise ValueError("Invalid parent filter - must be {'euuid': '...'} or {'path': '...'}")
-            else:
-                raise ValueError("Parent filter must be None or dict")
-        
-        variables = {}
-        if filters.get('limit'):
-            variables['limit'] = filters['limit']
-        
-        if where_conditions:
-            if len(where_conditions) == 1:
-                variables['where'] = where_conditions[0]
-            else:
-                variables['where'] = {"_and": where_conditions}
-        
-        result = await _graphql(query, variables)
-        
-        if result.get('error'):
-            raise Exception(f"Failed to list folders: {result['error']}")
-        
-        return result.get('data', {}).get('searchFolder', [])
-        
-    except Exception as e:
-        raise e
-
-
-async def get_folder_info(data: Dict[str, str]) -> Optional[Dict[str, Any]]:
-    """
-    Get information about a specific folder by UUID or path.
-    
-    Args:
-        data: Dict containing either:
-            {"euuid": "folder-uuid"} OR {"path": "/folder/path"}
-    
-    Returns:
-        Folder information dict if found, None if not found
-        
-    Raises:
-        Exception: If GraphQL query fails
-        
-    Examples:
-        # Get by UUID
-        folder = await get_folder_info({"euuid": folder_uuid})
-        
-        # Get by path
-        folder = await get_folder_info({"path": "/documents/reports"})
-    """
-    try:
-        if 'euuid' in data:
-            query = """
-            query GetFolder($euuid: UUID!) {
-                getFolder(euuid: $euuid) {
-                    euuid
-                    name
-                    path
-                    modified_on
-                    parent {
-                        euuid
-                        name
-                    }
-                }
-            }
-            """
-            variables = {"euuid": data["euuid"]}
-        elif 'path' in data:
-            query = """
-            query GetFolder($path: String!) {
-                getFolder(path: $path) {
-                    euuid
-                    name
-                    path
-                    modified_on
-                    parent {
-                        euuid
-                        name
-                    }
-                }
-            }
-            """
-            variables = {"path": data["path"]}
-        else:
-            raise ValueError("Must provide either 'euuid' or 'path' in data dict")
-        
-        result = await _graphql(query, variables)
-        
-        if result.get('error'):
-            raise Exception(f"Failed to get folder info: {result['error']}")
-        
-        return result.get('data', {}).get('getFolder')
-        
-    except Exception as e:
-        raise e
-
-
 async def delete_folder(folder_uuid: str) -> bool:
     """
-    Delete an empty folder from EYWA file service.
+    Delete an empty folder.
     
     Note: Folder must be empty (no files or subfolders) to be deleted.
     
@@ -1158,11 +793,6 @@ async def delete_folder(folder_uuid: str) -> bool:
         
     Returns:
         True if deletion successful, False otherwise
-        
-    Examples:
-        success = await delete_folder(folder_uuid)
-        if not success:
-            print("Folder deletion failed - may not be empty")
     """
     try:
         mutation = """
@@ -1196,10 +826,6 @@ def calculate_file_hash(filepath: Union[str, Path], algorithm: str = 'sha256') -
         
     Returns:
         Hex digest of the file hash
-        
-    Examples:
-        hash_value = calculate_file_hash("test.txt", "sha256")
-        print(f"SHA256: {hash_value}")
     """
     filepath = Path(filepath)
     hash_obj = hashlib.new(algorithm)
@@ -1212,44 +838,7 @@ def calculate_file_hash(filepath: Union[str, Path], algorithm: str = 'sha256') -
 
 
 # ============================================================================
-# Convenience Functions
-# ============================================================================
-
-async def quick_upload(filepath: Union[str, Path]) -> str:
-    """
-    Quick upload with minimal parameters.
-    
-    Returns:
-        File UUID (generated by server if not provided)
-    """
-    file_path = Path(filepath)
-    await upload(filepath, {"name": file_path.name})
-    
-    # Since we don't control the UUID in this convenience function,
-    # we need to find the file by name (most recent)
-    files = await list({"name": file_path.name, "limit": 1})
-    if files:
-        return files[0]['euuid']
-    else:
-        raise FileUploadError("Could not retrieve uploaded file UUID")
-
-
-async def quick_download(file_uuid: str, filename: Optional[str] = None) -> str:
-    """
-    Quick download to current directory.
-    
-    Returns:
-        Path to downloaded file
-    """
-    if filename is None:
-        info = await file_info(file_uuid)
-        filename = info['name'] if info else f"download_{file_uuid[:8]}"
-    
-    return await download(file_uuid, filename)
-
-
-# ============================================================================
-# Export All Functions (Per FILES_SPEC.md)
+# Export All Functions
 # ============================================================================
 
 __all__ = [
@@ -1261,30 +850,20 @@ __all__ = [
     'FileUploadError', 
     'FileDownloadError',
     
-    # Core Upload Operations
+    # Upload Operations (Protocol Abstraction)
     'upload',
     'upload_stream', 
     'upload_content',
     
-    # Core Download Operations
+    # Download Operations (Protocol Abstraction)
     'download_stream',
     'download',
     
-    # File Management Operations  
-    'file_info',
-    'list',
-    'delete_file',
-    
-    # Folder Operations
+    # Simple CRUD Operations
     'create_folder',
-    'list_folders', 
-    'get_folder_info',
+    'delete_file',
     'delete_folder',
     
     # Utility Functions
     'calculate_file_hash',
-    
-    # Convenience Functions
-    'quick_upload',
-    'quick_download'
 ]

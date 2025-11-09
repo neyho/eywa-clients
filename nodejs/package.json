@@ -1,6 +1,6 @@
 {
   "name": "eywa-client",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "EYWA client library for Node.js: GraphQL-aligned file operations, JSON-RPC, and task management following the Babashka pattern",
   "main": "src/index.js",
   "types": "src/eywa.d.ts",
