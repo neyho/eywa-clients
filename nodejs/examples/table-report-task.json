@@ -1,0 +1,9 @@
+{
+  "euuid": "550e8400-e29b-41d4-a716-446655440002",
+  "data": {
+    "reportType": "table",
+    "title": "Monthly Sales Report",
+    "regions": ["North", "South", "East", "West"],
+    "totalGrowth": "15%"
+  }
+}

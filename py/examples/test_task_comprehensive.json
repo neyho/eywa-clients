@@ -1,0 +1,30 @@
+{
+  "euuid": "660e8400-e29b-41d4-a716-446655440001",
+  "message": "Comprehensive data analysis with enhanced reporting",
+  "type": "ROBOT", 
+  "priority": 2,
+  "data": {
+    "target": "orders",
+    "batch_size": 50,
+    "operation": "data_analysis",
+    "config": {
+      "dry_run": false,
+      "enable_validation": true,
+      "timeout_seconds": 60,
+      "retry_count": 5,
+      "enable_reporting": true,
+      "report_interval": 10
+    },
+    "date_range": {
+      "start": "2024-01-01",
+      "end": "2024-12-31"
+    },
+    "filters": {
+      "status": ["completed", "shipped", "delivered"],
+      "amount_min": 100,
+      "amount_max": 50000,
+      "regions": ["US", "EU", "APAC"],
+      "customer_type": ["enterprise", "premium"]
+    }
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "euuid": "550e8400-e29b-41d4-a716-446655440003",
+  "data": {
+    "reportType": "complete",
+    "title": "Performance Analysis with Chart",
+    "systemMetrics": {
+      "avgResponseTime": "95ms",
+      "throughput": "1,200 req/s",
+      "errorRate": "0.01%",
+      "uptime": "99.99%"
+    },
+    "includeChart": true
+  }
+}

@@ -178,16 +178,121 @@ export const exception = (message, data = null) => {
   log({ 'event': 'EXCEPTION', 'message': message, 'data': data })
 }
 
-export const report = (message, data = null, image = null) => {
-  send_notification({
-    'method': 'task.report',
-    'params': {
-      'message': message,
-      'data': data,
-      'image': image
+export const report = async (message, options = {}) => {
+  const { data, image, metadata } = options;
+
+  // Get current task UUID
+  let currentTaskUuid;
+  try {
+    const task = await get_task();
+    currentTaskUuid = task.euuid || task.id;
+  } catch (error) {
+    throw new Error('Cannot create report: No active task found');
+  }
+
+  // Build report data structure
+  const reportData = {
+    message,
+    task: { euuid: currentTaskUuid }
+  };
+
+  // Process data and set flags
+  if (data) {
+    reportData.data = data;
+    reportData.has_card = !!(data.card && data.card.trim().length > 0);
+    reportData.has_table = !!(data.tables && Object.keys(data.tables).length > 0);
+  } else {
+    reportData.has_card = false;
+    reportData.has_table = false;
+  }
+
+  // Process image and validate
+  if (image) {
+    if (!isValidBase64(image)) {
+      throw new Error('Invalid base64 image data');
     }
-  })
-}
+    reportData.image = image;
+    reportData.has_image = true;
+  } else {
+    reportData.has_image = false;
+  }
+
+  // Validate table structure if present
+  if (data && data.tables) {
+    validateTables(data.tables);
+  }
+
+  // Include metadata if provided
+  if (metadata && typeof metadata === 'object') {
+    reportData.metadata = metadata;
+  }
+
+  // Create report using GraphQL mutation
+  const mutation = `
+    mutation CreateTaskReport($report: TaskReportInput!) {
+      stackTaskReport(data: $report) {
+        euuid
+        message
+        has_table
+        has_card
+        has_image
+      }
+    }
+  `;
+
+  try {
+    const result = await graphql(mutation, { report: reportData });
+    return result.data?.stackTaskReport || null;
+  } catch (error) {
+    throw new Error(`Failed to create report: ${error.message}`);
+  }
+};
+
+// Helper function to validate base64 data
+const isValidBase64 = (str) => {
+  if (!str || typeof str !== 'string') return false;
+  try {
+    // Check if it's valid base64
+    const decoded = atob(str);
+    const reencoded = btoa(decoded);
+    return reencoded === str;
+  } catch (err) {
+    return false;
+  }
+};
+
+// Helper function to validate table structure
+const validateTables = (tables) => {
+  if (!tables || typeof tables !== 'object') {
+    throw new Error('Tables must be an object with named table entries');
+  }
+
+  for (const [tableName, tableData] of Object.entries(tables)) {
+    if (!tableData || typeof tableData !== 'object') {
+      throw new Error(`Table '${tableName}' must be an object`);
+    }
+
+    if (!Array.isArray(tableData.headers)) {
+      throw new Error(`Table '${tableName}' must have a 'headers' array`);
+    }
+
+    if (!Array.isArray(tableData.rows)) {
+      throw new Error(`Table '${tableName}' must have a 'rows' array`);
+    }
+
+    // Validate each row has same number of columns as headers
+    const headerCount = tableData.headers.length;
+    for (let i = 0; i < tableData.rows.length; i++) {
+      const row = tableData.rows[i];
+      if (!Array.isArray(row)) {
+        throw new Error(`Table '${tableName}' row ${i} must be an array`);
+      }
+      if (row.length !== headerCount) {
+        throw new Error(`Table '${tableName}' row ${i} has ${row.length} columns but headers specify ${headerCount}`);
+      }
+    }
+  }
+};
 
 export const close_task = (status = SUCCESS) => {
   send_notification({

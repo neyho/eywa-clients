@@ -5,6 +5,48 @@ All notable changes to eywa-client will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - 2025-01-11
+
+### Added
+
+#### Enhanced Task Reports 📊
+- **`report(message, options)`** - Completely rewritten for structured business intelligence
+  - **Markdown Cards** - Rich text formatting with headers, lists, bold/italic text
+  - **Named Tables** - Structured data tables like Excel sheets with headers and rows
+  - **Base64 Image Support** - Attach charts, graphs, and visualizations
+  - **Auto-Flag Generation** - Automatically sets `has_card`, `has_table`, `has_image` flags
+  - **GraphQL Integration** - Uses proper GraphQL mutations instead of notifications
+  - **Data Validation** - Validates table structure and base64 encoding
+  - **Task Linking** - Reports automatically linked to parent tasks
+  - **TypeScript Support** - Full type definitions for report structures
+  - **Error Handling** - Comprehensive validation with clear error messages
+  - **Metadata Support** - Optional metadata for additional context
+
+#### Business Intelligence Features
+- **Dashboard Ready** - Reports render perfectly in EYWA frontend dashboards
+- **Multi-Table Architecture** - Named tables enable complex business reports
+- **Mobile Responsive** - Markdown cards work beautifully on all devices
+- **Analytics Integration** - Structured data supports BI tools and analysis
+- **Export Capability** - Table data structure supports Excel/CSV export
+
+#### Developer Experience
+- **Backward Compatibility** - Old `report(message, data, image)` syntax still works
+- **Comprehensive Examples** - Multiple example files demonstrating all features
+- **Test Suite** - Automated tests for validation and error handling
+- **Rich Documentation** - Updated README with migration guide and examples
+
+### Changed
+- **`report()` function** - Now returns Promise<TaskReport> instead of void
+- **Report data structure** - Now uses GraphQL mutations for reliable delivery
+- **Flag management** - Automatic flag setting based on content analysis
+
+### Technical Details
+- Enhanced TypeScript definitions with `ReportData`, `ReportOptions`, `TaskReport` interfaces
+- Base64 validation using browser-compatible `atob`/`btoa` functions
+- Table structure validation with row/column consistency checks
+- Comprehensive error handling for invalid data structures
+- GraphQL mutation: `stackTaskReport(data: $report)` with full schema compliance
+
 ## [0.2.0] - 2025-10-22
 
 ### Added

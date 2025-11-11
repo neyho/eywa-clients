@@ -13,6 +13,7 @@ import json
 import os
 import platform
 import logging
+import base64
 from datetime import datetime, date
 from nanoid import generate as nanoid
 
@@ -324,7 +325,265 @@ def exception(message, data=None):
     log(event="EXCEPTION", message=message, data=data)
 
 
+def _validate_base64_image(image_data):
+    """Validate that image_data is valid base64."""
+    if not image_data:
+        return True
+
+    if not isinstance(image_data, str):
+        raise ValueError("Image data must be a string")
+
+    try:
+        base64.b64decode(image_data, validate=True)
+        return True
+    except Exception as e:
+        raise ValueError(f"Invalid base64 image data: {e}")
+
+
+def _validate_table_structure(table_data):
+    """Validate table structure has headers and rows."""
+    if not isinstance(table_data, dict):
+        raise ValueError("Table data must be a dictionary")
+
+    if "headers" not in table_data:
+        raise ValueError("Table must have 'headers' field")
+
+    if "rows" not in table_data:
+        raise ValueError("Table must have 'rows' field")
+
+    headers = table_data["headers"]
+    rows = table_data["rows"]
+
+    if not isinstance(headers, list):
+        raise ValueError("Table headers must be a list")
+
+    if not isinstance(rows, list):
+        raise ValueError("Table rows must be a list")
+
+    # Check that each row has the same number of columns as headers
+    header_count = len(headers)
+    for i, row in enumerate(rows):
+        if not isinstance(row, list):
+            raise ValueError(f"Table row {i} must be a list")
+        if len(row) != header_count:
+            raise ValueError(
+                f"Table row {i} has {len(row)} columns, expected {header_count}"
+            )
+
+    return True
+
+
+def create_table(headers, rows):
+    """Helper function to create a properly formatted table.
+
+    Args:
+        headers (list): List of column header names
+        rows (list): List of rows, where each row is a list of values
+
+    Returns:
+        dict: Properly formatted table structure
+
+    Example:
+        table = create_table(
+            headers=["Name", "Score", "Status"],
+            rows=[
+                ["Alice", 95, "Pass"],
+                ["Bob", 87, "Pass"],
+                ["Charlie", 72, "Pass"]
+            ]
+        )
+    """
+    if not isinstance(headers, list):
+        raise ValueError("Headers must be a list")
+
+    if not isinstance(rows, list):
+        raise ValueError("Rows must be a list")
+
+    # Validate that each row has the correct number of columns
+    header_count = len(headers)
+    for i, row in enumerate(rows):
+        if not isinstance(row, list):
+            raise ValueError(f"Row {i} must be a list")
+        if len(row) != header_count:
+            raise ValueError(f"Row {i} has {len(row)} columns, expected {header_count}")
+
+    return {"headers": headers, "rows": rows}
+
+
+def create_report_data(card=None, **tables):
+    """Helper function to create report data with card and multiple tables.
+
+    Args:
+        card (str, optional): Markdown content for the report card
+        **tables: Named table structures (use create_table() to create them)
+
+    Returns:
+        dict: Properly formatted report data structure
+
+    Examples:
+        # Card only
+        data = create_report_data(card="# Summary\\nAll good!")
+
+        # Tables only
+        data = create_report_data(
+            Results=create_table(["Item", "Count"], [["Success", 100], ["Error", 2]]),
+            Details=create_table(["ID", "Message"], [["001", "OK"], ["002", "Warning"]])
+        )
+
+        # Card and tables
+        data = create_report_data(
+            card="# Analysis Complete\\nSee tables below.",
+            Summary=create_table(["Metric", "Value"], [["Total", 1000], ["Errors", 2]])
+        )
+    """
+    data = {}
+
+    if card is not None:
+        if not isinstance(card, str):
+            raise ValueError("Card must be a string (markdown content)")
+        data["card"] = card
+
+    if tables:
+        # Validate each table structure
+        for table_name, table_data in tables.items():
+            if not isinstance(table_name, str):
+                raise ValueError("Table names must be strings")
+            _validate_table_structure(table_data)
+
+        data["tables"] = tables
+
+    return data
+
+
+def add_table_row(table, row):
+    """Helper function to add a row to an existing table.
+
+    Args:
+        table (dict): Table structure created with create_table()
+        row (list): Row data to add
+
+    Returns:
+        dict: The modified table (also modifies in-place)
+
+    Example:
+        table = create_table(["Name", "Score"], [["Alice", 95]])
+        add_table_row(table, ["Bob", 87])
+        # table now has both Alice and Bob
+    """
+    if not isinstance(table, dict) or "headers" not in table or "rows" not in table:
+        raise ValueError("Invalid table structure")
+
+    if not isinstance(row, list):
+        raise ValueError("Row must be a list")
+
+    header_count = len(table["headers"])
+    if len(row) != header_count:
+        raise ValueError(f"Row has {len(row)} columns, expected {header_count}")
+
+    table["rows"].append(row)
+    return table
+
+
+def _validate_report_data(data):
+    """Validate the data structure for reports."""
+    if not data:
+        return True
+
+    if not isinstance(data, dict):
+        raise ValueError("Report data must be a dictionary")
+
+    # Validate card if present
+    if "card" in data:
+        card = data["card"]
+        if card is not None and not isinstance(card, str):
+            raise ValueError("Report card must be a string (markdown content)")
+
+    # Validate tables if present
+    if "tables" in data:
+        tables = data["tables"]
+        if not isinstance(tables, dict):
+            raise ValueError("Report tables must be a dictionary")
+
+        for table_name, table_data in tables.items():
+            if not isinstance(table_name, str):
+                raise ValueError("Table names must be strings")
+            _validate_table_structure(table_data)
+
+    return True
+
+
+def encode_image_file(file_path):
+    """Helper function to encode an image file as base64.
+
+    Args:
+        file_path (str): Path to the image file
+
+    Returns:
+        str: Base64 encoded image data
+
+    Example:
+        chart_b64 = encode_image_file("chart.png")
+        report("Analysis", {"card": "See chart"}, image=chart_b64)
+    """
+    try:
+        with open(file_path, "rb") as image_file:
+            image_data = image_file.read()
+            return base64.b64encode(image_data).decode("utf-8")
+    except FileNotFoundError:
+        raise ValueError(f"Image file not found: {file_path}")
+    except Exception as e:
+        raise ValueError(f"Failed to encode image file {file_path}: {e}")
+
+
 def report(message, data=None, image=None):
+    """Create a structured task report.
+
+    Args:
+        message (str): Report title/description
+        data (dict, optional): Report content with 'card' (markdown) and/or 'tables' (named tables)
+        image (str, optional): Base64 encoded image data
+
+    Raises:
+        ValueError: If data structure or image format is invalid
+
+    Examples:
+        # Simple markdown card
+        report("Daily Summary", {
+            "card": "# Success!\\nProcessed **1,000 records** with 0 errors."
+        })
+
+        # Report with tables
+        report("Analysis Complete", {
+            "tables": {
+                "Results": {
+                    "headers": ["Category", "Count", "Status"],
+                    "rows": [
+                        ["Users", 800, "Complete"],
+                        ["Orders", 150, "Complete"]
+                    ]
+                }
+            }
+        })
+
+        # Full report with card, tables, and image
+        report("Monthly Report", {
+            "card": "# Monthly Summary\\nAll systems operational.",
+            "tables": {
+                "Performance": {
+                    "headers": ["Metric", "Value"],
+                    "rows": [["Uptime", "99.9%"], ["Errors", "0"]]
+                }
+            }
+        }, image=chart_base64)
+    """
+
+    # Validate inputs
+    if not isinstance(message, str):
+        raise ValueError("Message must be a string")
+
+    _validate_report_data(data)
+    _validate_base64_image(image)
+
     send_notification(
         {
             "method": "task.report",
@@ -359,7 +618,9 @@ def return_task():
 async def _get_eywa_module():
     """Get eywa module for GraphQL calls to avoid circular imports"""
     import sys
+
     return sys.modules[__name__]
+
 
 async def graphql(query, variables=None):
     return await send_request(
@@ -372,7 +633,7 @@ async def graphql(query, variables=None):
 
 # File operations are now available as a separate module:
 # from eywa_files import upload, download, list, etc.
-# 
+#
 # This eliminates circular dependencies and provides cleaner separation.
 # See examples/modernized_file_operations.py for usage patterns.
 
@@ -422,3 +683,4 @@ def exit(status=0):
         logger.debug(f"Error during cleanup: {e}")
 
     sys.exit(status)
+

@@ -1,0 +1,16 @@
+{
+  "euuid": "550e8400-e29b-41d4-a716-446655440000",
+  "message": "Quick test of enhanced reporting functionality",
+  "type": "ROBOT",
+  "priority": 1,
+  "data": {
+    "target": "users",
+    "batch_size": 25,
+    "config": {
+      "dry_run": false,
+      "enable_validation": true,
+      "timeout_seconds": 30,
+      "retry_count": 3
+    }
+  }
+}

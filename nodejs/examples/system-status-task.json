@@ -1,0 +1,13 @@
+{
+  "euuid": "550e8400-e29b-41d4-a716-446655440004",
+  "data": {
+    "reportType": "system-status",
+    "title": "System Health Dashboard",
+    "services": [
+      {"name": "API Gateway", "status": "Healthy", "uptime": "99.9%", "responseTime": "45ms"},
+      {"name": "Database", "status": "Healthy", "uptime": "100%", "responseTime": "8ms"},
+      {"name": "Cache Layer", "status": "Warning", "uptime": "98.5%", "responseTime": "120ms"},
+      {"name": "File Storage", "status": "Healthy", "uptime": "99.95%", "responseTime": "150ms"}
+    ]
+  }
+}

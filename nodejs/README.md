@@ -275,16 +275,201 @@ eywa.update_task(eywa.PROCESSING)
 // Log progress with data
 eywa.info('Processing file', { filename: 'data.csv', rows: 150 })
 
-// Report results
-eywa.report('Analysis complete', {
-  processed: 150,
-  errors: 0,
-  duration: '2.3s'
+// Enhanced structured reporting with markdown and tables
+await eywa.report('Analysis Complete', {
+  data: {
+    card: `# Data Processing Complete ✅
+
+**Records processed:** 150  
+**Error rate:** 0%  
+**Duration:** 2.3s
+
+## Summary
+All data processed successfully with zero errors.`,
+    
+    tables: {
+      "Processing Results": {
+        headers: ["Category", "Count", "Status"],
+        rows: [
+          ["Valid Records", "150", "✅ Complete"],
+          ["Errors", "0", "✅ None"],
+          ["Warnings", "2", "⚠️ Minor"]
+        ]
+      }
+    }
+  }
+})
+
+// Simple report (backward compatible)
+eywa.report('Processing started', {
+  data: { card: '# Processing Started\n\nInitiating data analysis...' }
 })
 
 // Complete successfully
 eywa.close_task(eywa.SUCCESS)
 ```
+
+## 📊 Enhanced Task Reports
+
+The enhanced task reporting system provides rich, structured reports with markdown formatting, data tables, and visualizations - perfect for business intelligence and dashboard integration.
+
+### 🎯 Key Features
+
+- **📝 Markdown Cards** - Rich text formatting with headers, lists, and formatting
+- **📋 Named Tables** - Structured data tables like Excel sheets
+- **📈 Image Support** - Base64-encoded charts and visualizations
+- **🏷️ Auto-Flag Generation** - Automatic content type detection
+- **✅ Data Validation** - Ensures data integrity and structure
+- **🔗 Task Linking** - Reports automatically linked to parent tasks
+
+### Basic Usage
+
+```javascript
+// Simple markdown report
+await eywa.report("Daily Summary", {
+  data: {
+    card: `# Success! ✅
+    
+**Records processed:** 1,000  
+**Duration:** 5m 30s  
+**Error rate:** 0.1%
+
+## Next Steps
+- Review failed records
+- Archive processed files
+- Schedule next run`
+  }
+})
+
+// Multi-table business report
+await eywa.report("Monthly Analysis", {
+  data: {
+    card: `# Monthly Performance Report
+    
+## Overview
+All systems operational. Performance **exceeded targets** by 15%.
+
+### Key Achievements
+- 🎯 Zero critical incidents
+- 📈 Revenue growth: +12%
+- ⚡ Response time improved: -23%`,
+    
+    tables: {
+      "Regional Sales": {
+        headers: ["Region", "Revenue", "Growth", "Target"],
+        rows: [
+          ["North America", "$125K", "+12%", "✅ Met"],
+          ["Europe", "$89K", "+8%", "✅ Met"],
+          ["Asia Pacific", "$156K", "+23%", "🎯 Exceeded"]
+        ]
+      },
+      "System Health": {
+        headers: ["Service", "Uptime", "Response Time", "Status"],
+        rows: [
+          ["API Gateway", "99.9%", "85ms", "Healthy"],
+          ["Database", "100%", "12ms", "Healthy"],
+          ["Cache Layer", "99.8%", "3ms", "Healthy"]
+        ]
+      }
+    }
+  }
+})
+
+// Report with visualization
+const chartBase64 = fs.readFileSync('performance-chart.png', 'base64')
+
+await eywa.report("Performance Analysis", {
+  data: {
+    card: "# Performance Trends\n\nSee attached chart for detailed analysis."
+  },
+  image: chartBase64
+})
+```
+
+### Report Structure
+
+```typescript
+interface ReportOptions {
+  data?: {
+    card?: string                    // Markdown content
+    tables?: {
+      [tableName: string]: {
+        headers: string[]            // Column headers
+        rows: any[][]               // Data rows
+      }
+    }
+  }
+  image?: string                     // Base64-encoded image
+  metadata?: Record<string, any>     // Additional metadata
+}
+```
+
+### Automatic Flags
+
+The client automatically sets content flags based on your data:
+
+- `has_card: true` - When `data.card` contains markdown content
+- `has_table: true` - When `data.tables` contains one or more tables
+- `has_image: true` - When `image` field contains valid base64 data
+
+### Error Handling
+
+```javascript
+try {
+  await eywa.report("Invalid Report", {
+    data: {
+      tables: {
+        "Bad Table": {
+          headers: ["Col1", "Col2"],
+          rows: [["Value1"]]  // Missing second column
+        }
+      }
+    },
+    image: "invalid-base64-data"
+  })
+} catch (error) {
+  console.error('Report validation failed:', error.message)
+  // Handle validation errors appropriately
+}
+```
+
+### Migration from Simple Reports
+
+**Before (Simple logging):**
+```javascript
+eywa.info("Processing complete")
+eywa.info(`Processed ${count} records`)
+eywa.info(`Success rate: ${rate}%`)
+```
+
+**After (Structured reports):**
+```javascript
+await eywa.report("Processing Complete", {
+  data: {
+    card: `# Processing Summary
+    
+**Records processed:** ${count:,}  
+**Success rate:** ${rate}%  
+**Duration:** ${duration}
+
+## Results by Type
+${results.map(r => `- **${r.type}:** ${r.count} (${r.rate}%)`).join('\n')}`,
+    
+    tables: {
+      "Detailed Results": {
+        headers: ["Type", "Count", "Success Rate", "Avg Time"],
+        rows: results.map(r => [r.type, r.count, `${r.rate}%`, r.avgTime])
+      }
+    }
+  }
+})
+```
+
+**Benefits:**
+- 📊 **Rich Visualizations** - Charts and formatted tables vs plain text
+- 🎯 **Business Intelligence** - Structured data enables dashboard integration
+- 📱 **Mobile Responsive** - Markdown renders beautifully on all devices
+- 📈 **Analytics Ready** - Named datasets support BI tools and analysis
 
 ## 🚨 Error Handling
 

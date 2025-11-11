@@ -169,6 +169,46 @@ export interface DownloadStreamResult {
 }
 
 // ============================================================================
+// Report Types
+// ============================================================================
+
+export interface ReportData {
+  /** Markdown content for rich formatting */
+  card?: string;
+  /** Named tables with headers and rows */
+  tables?: {
+    [tableName: string]: {
+      headers: string[];
+      rows: any[][];
+    };
+  };
+}
+
+export interface ReportOptions {
+  /** Structured report content */
+  data?: ReportData;
+  /** Base64 encoded image/chart data */
+  image?: string;
+  /** Additional metadata */
+  metadata?: Record<string, any>;
+}
+
+export interface TaskReport {
+  /** Report UUID */
+  euuid: string;
+  /** Report message/title */
+  message: string;
+  /** Whether report has markdown card */
+  has_card: boolean;
+  /** Whether report has data tables */
+  has_table: boolean;
+  /** Whether report has image */
+  has_image: boolean;
+  /** Report creation timestamp */
+  created_on: string;
+}
+
+// ============================================================================
 // Exception Types
 // ============================================================================
 
@@ -209,7 +249,10 @@ export function debug(message: string, data?: any): void;
 export function trace(message: string, data?: any): void;
 export function warn(message: string, data?: any): void;
 export function exception(message: string, data?: any): void;
-export function report(message: string, data?: any, image?: any): void;
+export function report(message: string, options?: ReportOptions): Promise<TaskReport | null>;
+
+// Legacy overload for backward compatibility
+export function report(message: string, data: any, image: any): Promise<TaskReport | null>;
 
 export function graphql<T = any>(query: string, variables?: any): Promise<GraphQLResponse<T>>;
 
