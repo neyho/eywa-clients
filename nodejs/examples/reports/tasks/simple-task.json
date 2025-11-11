@@ -1,0 +1,9 @@
+{
+  "euuid": "550e8400-e29b-41d4-a716-446655440101",
+  "data": {
+    "title": "Simple Processing Task",
+    "type": "data_processing",
+    "recordCount": 1500,
+    "priority": "normal"
+  }
+}

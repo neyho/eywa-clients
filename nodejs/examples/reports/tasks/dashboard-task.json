@@ -1,0 +1,13 @@
+{
+  "euuid": "550e8400-e29b-41d4-a716-446655440102",
+  "data": {
+    "title": "Performance Dashboard Generation",
+    "type": "dashboard_creation",
+    "systemMetrics": {
+      "monitoring_period": "24h",
+      "regions": ["NA", "EU", "APAC", "LATAM"],
+      "include_charts": true
+    },
+    "priority": "high"
+  }
+}
