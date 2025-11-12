@@ -69,24 +69,7 @@ public class Logger
         await LogAsync("EXCEPTION", message, data);
     }
     
-    /// <summary>
-    /// Send report with optional image
-    /// </summary>
-    public async Task ReportAsync(string message, object? data = null, string? imageBase64 = null)
-    {
-        var parameters = new Dictionary<string, object>
-        {
-            ["message"] = message
-        };
-        
-        if (data != null)
-            parameters["data"] = data;
-            
-        if (!string.IsNullOrEmpty(imageBase64))
-            parameters["image"] = imageBase64;
-        
-        await _client.SendNotificationAsync("task.report", parameters);
-    }
+
     
     /// <summary>
     /// Internal logging method

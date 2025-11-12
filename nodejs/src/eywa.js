@@ -179,7 +179,7 @@ export const exception = (message, data = null) => {
 }
 
 export const report = async (message, options = {}) => {
-  const { data, image, metadata } = options;
+  const { data, image } = options;
 
   // Get current task UUID
   let currentTaskUuid;
@@ -222,10 +222,8 @@ export const report = async (message, options = {}) => {
     validateTables(data.tables);
   }
 
-  // Include metadata if provided
-  if (metadata && typeof metadata === 'object') {
-    reportData.metadata = metadata;
-  }
+  // Note: metadata is not supported by EYWA Task Report schema
+  // The Task Report entity only supports: message, data, image, has_* flags
 
   // Create report using GraphQL mutation
   const mutation = `

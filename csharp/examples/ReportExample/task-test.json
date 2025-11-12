@@ -1,0 +1,8 @@
+{
+  "euuid": "302a5a31-99cf-4e38-95e7-f682efc26ec2",
+  "data": {
+    "reportType": "test",
+    "targetEntity": "User",
+    "batchSize": 25
+  }
+}
