@@ -1,13 +1,16 @@
 #!/usr/bin/env python3
 """
-EYWA Files - Simplified API Demo
+EYWA Files - Simplified API Demo (Idempotent)
 
-Demonstrates the new simplified approach:
+Demonstrates the simplified approach with idempotent operations:
 - Protocol abstraction for upload/download
 - Simple CRUD mutations
 - Direct GraphQL for queries/verification
+- Pre-defined UUIDs for repeatable operations
 
 Usage: eywa run -c "python examples/simple_files_demo.py"
+
+Note: Can be run multiple times safely - uses constant UUIDs.
 """
 
 import sys
@@ -32,6 +35,11 @@ from eywa_files import (
 import uuid
 import tempfile
 from pathlib import Path
+
+# Pre-defined UUIDs for idempotent operations
+DEMO_FOLDER_UUID = "9bd6fe99-7540-4a54-9998-138405ea8d2c"
+SAMPLE_FILE_UUID = "3f0f4173-4ef7-4499-857e-37568adeab48"
+JSON_FILE_UUID = "ea0fee9a-30d9-4aae-b087-10bce969af57"
 
 
 class SimplifiedFilesDemo:
@@ -66,8 +74,8 @@ class SimplifiedFilesDemo:
         """Demo folder creation and verification with GraphQL"""
         eywa.info("📁 DEMO: Folder Operations")
 
-        # Create test folder
-        folder_uuid = str(uuid.uuid4())
+        # Create test folder with predefined UUID
+        folder_uuid = DEMO_FOLDER_UUID
         self.track_resource("folder", folder_uuid, "demo-folder")
 
         eywa.info("Creating folder with client-controlled UUID...")
@@ -124,8 +132,8 @@ class SimplifiedFilesDemo:
         temp_file.close()
 
         try:
-            # Upload file with client-controlled UUID
-            file_uuid = str(uuid.uuid4())
+            # Upload file with predefined UUID
+            file_uuid = SAMPLE_FILE_UUID
             self.track_resource("file", file_uuid, "demo-file.txt")
 
             folder_ref = {"euuid": folder_uuid} if folder_uuid else {"euuid": ROOT_UUID}
@@ -179,8 +187,8 @@ class SimplifiedFilesDemo:
         """Demo content upload (string/JSON)"""
         eywa.info("📝 DEMO: Content Upload")
 
-        # Upload JSON content
-        file_uuid = str(uuid.uuid4())
+        # Upload JSON content with predefined UUID
+        file_uuid = JSON_FILE_UUID
         self.track_resource("file", file_uuid, "demo-data.json")
 
         import json
@@ -375,3 +383,4 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+
