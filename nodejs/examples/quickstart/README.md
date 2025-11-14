@@ -18,12 +18,19 @@ Learn how to make GraphQL queries directly to EYWA.
 eywa run -c 'node examples/quickstart/basic-graphql.js'
 ```
 
+### `basic-files.js`
+Essential file operations: upload, download, folders, and listing.
+
+```bash
+eywa run -c 'node examples/quickstart/basic-files.js'
+```
+
 ## Next Steps
 
 Once you've run these examples:
 1. Check out `../reports/` for task reporting
-2. Explore `../files/` for file operations
-3. Build custom robots in `../robots/`
+2. Try `../simple-files-demo.js` for comprehensive file operations
+3. Explore other examples in the parent directory
 
 ## Tips
 

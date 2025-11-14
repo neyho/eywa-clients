@@ -1,0 +1,26 @@
+{
+  "euuid": "6bd6fe99-7540-4a54-9998-138405ea8d2c",
+  "message": "EYWA Node.js File Operations Demo",
+  "type": "ROBOT",
+  "priority": 1,
+  "data": {
+    "demo_type": "files",
+    "operations": ["upload", "download", "folders", "queries"],
+    "config": {
+      "cleanup": true,
+      "use_predefined_uuids": true,
+      "verbose": true,
+      "test_folder_name": "demo-folder",
+      "test_files": [
+        {
+          "name": "demo-file.txt",
+          "type": "text"
+        },
+        {
+          "name": "demo-data.json",
+          "type": "json"
+        }
+      ]
+    }
+  }
+}
