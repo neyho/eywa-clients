@@ -1,18 +1,18 @@
 /// <summary>
 /// EYWA Files Client - GraphQL-aligned file operations
-/// 
+///
 /// Implements the 8 core functions from FILES_SPEC.md:
 /// - upload, uploadStream, uploadContent
-/// - download, downloadStream  
+/// - download, downloadStream
 /// - createFolder, deleteFile, deleteFolder
-/// 
+///
 /// Uses single map arguments that mirror GraphQL schema exactly.
-/// All data interchange uses Dictionary&lt;string, object&gt; to stay as close 
-/// to GraphQL as possible.
+/// All data interchange uses JsonNode for dynamic data access.
 /// </summary>
 
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using EywaClient.Core;
 using EywaClient.Utils;
 
@@ -288,7 +288,7 @@ public class FilesClient
     /// <summary>
     /// Create a new folder
     /// </summary>
-    public async Task<Dictionary<string, object>> CreateFolderAsync(Dictionary<string, object> folderData)
+    public async Task<JsonNode?> CreateFolderAsync(Dictionary<string, object> folderData)
     {
         try
         {
@@ -312,9 +312,9 @@ public class FilesClient
                     ["folder"] = folderData
                 }
             });
-            
+
             var result = ExtractGraphQLResult(response);
-            return (result["stackFolder"] as Dictionary<string, object>) ?? new Dictionary<string, object>();
+            return result?["stackFolder"];
         }
         catch (Exception ex)
         {
@@ -342,7 +342,7 @@ public class FilesClient
             });
             
             var result = ExtractGraphQLResult(response);
-            return Convert.ToBoolean(result.GetValueOrDefault("deleteFile"));
+            return result?["deleteFile"]?.GetValue<bool>() ?? false;
         }
         catch (Exception ex)
         {
@@ -370,7 +370,7 @@ public class FilesClient
             });
             
             var result = ExtractGraphQLResult(response);
-            return Convert.ToBoolean(result.GetValueOrDefault("deleteFolder"));
+            return result?["deleteFolder"]?.GetValue<bool>() ?? false;
         }
         catch (Exception ex)
         {
@@ -400,14 +400,9 @@ public class FilesClient
         });
         
         var result = ExtractGraphQLResult(response);
-        
-        // Handle JsonElement for the URL value
-        var urlValue = result.GetValueOrDefault("requestUploadURL");
-        if (urlValue is JsonElement urlElement)
-        {
-            return urlElement.GetString() ?? throw new FileUploadError("No upload URL in response");
-        }
-        return urlValue?.ToString() ?? throw new FileUploadError("No upload URL in response");
+
+        // Extract URL value with JsonNode
+        return result?["requestUploadURL"]?.GetValue<string>() ?? throw new FileUploadError("No upload URL in response");
     }
     
     /// <summary>
@@ -428,8 +423,8 @@ public class FilesClient
         });
         
         var result = ExtractGraphQLResult(response);
-        var confirmed = Convert.ToBoolean(result.GetValueOrDefault("confirmFileUpload"));
-        
+        var confirmed = result?["confirmFileUpload"]?.GetValue<bool>() ?? false;
+
         if (!confirmed)
             throw new FileUploadError("Upload confirmation returned false");
     }
@@ -455,84 +450,25 @@ public class FilesClient
         });
         
         var result = ExtractGraphQLResult(response);
-        return result.GetValueOrDefault("requestDownloadURL")?.ToString() ?? 
+        return result?["requestDownloadURL"]?.GetValue<string>() ??
                throw new FileDownloadError("No download URL in response");
     }
     
     /// <summary>
     /// Extract GraphQL result and handle errors
     /// </summary>
-    private Dictionary<string, object> ExtractGraphQLResult(Dictionary<string, object> response)
+    private JsonNode? ExtractGraphQLResult(JsonNode? response)
     {
-        // Extract result from JSON-RPC response - handle JsonElement conversion
-        var resultObj = response.GetValueOrDefault("result");
-        Dictionary<string, object> result;
-        
-        if (resultObj is JsonElement jsonElement)
+        // Extract result from JSON-RPC response
+        var result = response?["result"];
+
+        // Check for GraphQL errors
+        if (result?["error"] != null)
         {
-            // Use JsonDocumentOptions to properly convert to native .NET types
-            var resultJson = jsonElement.GetRawText();
-            var jsonDoc = JsonDocument.Parse(resultJson);
-            result = ConvertJsonElementToDictionary(jsonDoc.RootElement);
+            throw new Exception($"GraphQL error: {result["error"]?.ToJsonString()}");
         }
-        else if (resultObj is Dictionary<string, object> dict)
-        {
-            result = dict;
-        }
-        else
-        {
-            return new Dictionary<string, object>();
-        }
-        
-        if (result.ContainsKey("error"))
-        {
-            throw new Exception($"GraphQL error: {JsonSerializer.Serialize(result["error"])}");
-        }
-        
-        // Extract the data field - also handle JsonElement
-        var dataObj = result.GetValueOrDefault("data");
-        if (dataObj is JsonElement dataElement)
-        {
-            return ConvertJsonElementToDictionary(dataElement);
-        }
-        else if (dataObj is Dictionary<string, object> dataDict)
-        {
-            return dataDict;
-        }
-        
-        return new Dictionary<string, object>();
-    }
-    
-    /// <summary>
-    /// Convert JsonElement to Dictionary with native .NET types
-    /// </summary>
-    private static Dictionary<string, object> ConvertJsonElementToDictionary(JsonElement element)
-    {
-        var dictionary = new Dictionary<string, object>();
-        
-        foreach (var property in element.EnumerateObject())
-        {
-            dictionary[property.Name] = ConvertJsonValue(property.Value);
-        }
-        
-        return dictionary;
-    }
-    
-    /// <summary>
-    /// Convert JsonElement to appropriate .NET type
-    /// </summary>
-    private static object ConvertJsonValue(JsonElement element)
-    {
-        return element.ValueKind switch
-        {
-            JsonValueKind.String => element.GetString() ?? "",
-            JsonValueKind.Number => element.TryGetInt32(out var i) ? i : element.GetDouble(),
-            JsonValueKind.True => true,
-            JsonValueKind.False => false,
-            JsonValueKind.Null => null!,
-            JsonValueKind.Object => ConvertJsonElementToDictionary(element),
-            JsonValueKind.Array => element.EnumerateArray().Select(ConvertJsonValue).ToArray(),
-            _ => element.ToString()
-        };
+
+        // Extract and return the data field
+        return result?["data"];
     }
 }

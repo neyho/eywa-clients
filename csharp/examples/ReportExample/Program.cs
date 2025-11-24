@@ -20,7 +20,7 @@ try
 
     // Get current task info
     var task = await eywa.Tasks.GetTaskAsync();
-    Console.WriteLine($"Running task: {task.GetValueOrDefault("euuid")}");
+    Console.WriteLine($"Running task: {task?["euuid"]?.GetValue<string>()}");
 
     // Example 1: Simple markdown card report (matches Node.js example)
     await eywa.Tasks.ReportAsync("Daily Summary", new ReportOptions

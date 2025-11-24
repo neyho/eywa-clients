@@ -24,7 +24,7 @@ class Program
             // Test 1: Get task
             Console.WriteLine("=== Testing Get Task ===");
             var task = await eywa.Tasks.GetTaskAsync();
-            Console.WriteLine($"Task ID: {task.GetValueOrDefault("euuid")}");
+            Console.WriteLine($"Task ID: {task?["euuid"]?.GetValue<string>()}");
             
             // Test 2: Log message
             Console.WriteLine("=== Testing Logging ===");

@@ -1,25 +1,26 @@
 /// <summary>
 /// EYWA C# Client - Clean JSON-RPC 2.0 Implementation
-/// 
+///
 /// Pure dynamic approach for GraphQL-first communication over stdin/stdout.
-/// Uses Dictionary&lt;string, object&gt; for all data interchange to stay as close
-/// to GraphQL as possible.
+/// Uses JsonNode for all data interchange to stay as close to GraphQL as
+/// possible while providing natural indexer syntax.
 /// </summary>
 
 using System.Diagnostics;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 
 namespace EywaClient.Core;
 
 /// <summary>
 /// JSON-RPC 2.0 client for EYWA communication over stdin/stdout.
-/// Handles bidirectional communication using dynamic data structures.
+/// Handles bidirectional communication using JsonNode for dynamic data access.
 /// </summary>
 public class JsonRpcClient
 {
     private readonly object _lockObject = new();
-    private readonly Dictionary<string, TaskCompletionSource<Dictionary<string, object>>> _pendingRequests = new();
+    private readonly Dictionary<string, TaskCompletionSource<JsonNode?>> _pendingRequests = new();
     private readonly Dictionary<string, Func<Dictionary<string, object>, object>> _requestHandlers = new();
     
     private StreamWriter? _stdin;
@@ -47,32 +48,32 @@ public class JsonRpcClient
     /// <summary>
     /// Send JSON-RPC request and await response
     /// </summary>
-    public async Task<Dictionary<string, object>> SendRequestAsync(string method, object? parameters = null)
+    public async Task<JsonNode?> SendRequestAsync(string method, object? parameters = null)
     {
         if (_stdin == null) throw new InvalidOperationException("Pipe not open");
-        
+
         var requestId = Interlocked.Increment(ref _nextRequestId).ToString();
-        var tcs = new TaskCompletionSource<Dictionary<string, object>>();
-        
+        var tcs = new TaskCompletionSource<JsonNode?>();
+
         lock (_lockObject)
         {
             _pendingRequests[requestId] = tcs;
         }
-        
+
         var request = new Dictionary<string, object>
         {
             ["jsonrpc"] = "2.0",
             ["id"] = requestId,
             ["method"] = method
         };
-        
+
         if (parameters != null)
             request["params"] = parameters;
-        
+
         var json = JsonSerializer.Serialize(request);
-        
+
         await _stdin.WriteLineAsync(json);
-        
+
         return await tcs.Task;
     }
 
@@ -152,8 +153,8 @@ public class JsonRpcClient
             var id = message["id"]?.ToString();
             if (id != null)
             {
-                TaskCompletionSource<Dictionary<string, object>>? tcs = null;
-                
+                TaskCompletionSource<JsonNode?>? tcs = null;
+
                 lock (_lockObject)
                 {
                     if (_pendingRequests.TryGetValue(id, out tcs))
@@ -161,7 +162,7 @@ public class JsonRpcClient
                         _pendingRequests.Remove(id);
                     }
                 }
-                
+
                 if (tcs != null)
                 {
                 if (message.ContainsKey("error"))
@@ -170,7 +171,7 @@ public class JsonRpcClient
                     var errorObj = message["error"];
                     string errorMessage = "Unknown error";
                     string errorCode = "0";
-                    
+
                     if (errorObj is JsonElement errorElement)
                     {
                         if (errorElement.TryGetProperty("message", out var msgProp))
@@ -183,13 +184,16 @@ public class JsonRpcClient
                         errorMessage = errorDict.GetValueOrDefault("message")?.ToString() ?? "Unknown error";
                         errorCode = errorDict.GetValueOrDefault("code")?.ToString() ?? "0";
                     }
-                    
+
                     Console.WriteLine($"ERROR: {errorMessage}");
                     tcs.SetException(new JsonRpcException(errorMessage, errorCode));
                     }
                     else
                     {
-                        tcs.SetResult(message);
+                        // Convert Dictionary to JsonNode
+                        var json = JsonSerializer.Serialize(message);
+                        var jsonNode = JsonNode.Parse(json);
+                        tcs.SetResult(jsonNode);
                     }
                 }
             }

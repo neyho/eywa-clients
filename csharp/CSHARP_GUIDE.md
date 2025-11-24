@@ -12,6 +12,7 @@
 - [🚀 Quick Start](#-quick-start)
 - [🏗 Architecture](#-architecture)
 - [📖 Core Concepts](#-core-concepts)
+- [📖 API Reference](#-api-reference)
 - [🔧 Installation & Setup](#-installation--setup)
 - [💻 Basic Usage Patterns](#-basic-usage-patterns)
 - [📁 File Operations](#-file-operations)
@@ -30,22 +31,22 @@
 
 ### What is EYWA C# Client?
 
-The EYWA C# Client is a **dynamic, GraphQL-first** client library that provides seamless integration with the EYWA platform for robotics automation. It embraces a dictionary-based approach using `Dictionary<string, object>` to stay as close to GraphQL as possible, eliminating translation layers and "JsonElement hell."
+The EYWA C# Client is a **dynamic, GraphQL-first** client library that provides seamless integration with the EYWA platform for robotics automation. It uses `JsonNode` for dynamic data handling, providing natural indexer syntax while staying as close to GraphQL as possible—perfect for RPA and microservices.
 
 ### Core Philosophy
 
-1. **Dynamic-first**: Uses `Dictionary<string, object>` for all data interchange
-2. **GraphQL-native**: Single map arguments that mirror GraphQL schema exactly  
+1. **Dynamic-first**: Uses `JsonNode` for intuitive data access with natural indexer syntax
+2. **GraphQL-native**: Arguments that mirror GraphQL schema exactly using dictionaries
 3. **Protocol abstraction only**: Abstracts complex S3 upload/download, not query complexity
 4. **Zero translation layers**: What you write in GraphQL is what you pass to functions
 5. **Client-controlled UUIDs**: For idempotent operations and retry safety
 
 ### Key Benefits
 
-- ✅ **No "impedance mismatch"** - C# maps directly mirror GraphQL
+- ✅ **Natural syntax** - `result["data"]["users"][0]["name"]` just works
 - ✅ **Future-proof** - New GraphQL features work immediately
 - ✅ **Simple to maintain** - Less code, no complex type mappings
-- ✅ **Natural for C# developers** - `Dictionary<string, object>` is familiar
+- ✅ **Perfect for RPA/microservices** - Dynamic access without ceremony
 - ✅ **Follows FILES_SPEC.md exactly** - Protocol abstraction, not query abstraction
 
 ---
@@ -61,6 +62,7 @@ dotnet add package EywaClient
 ### 30-Second Example
 
 ```csharp
+using System.Text.Json.Nodes;
 using EywaClient;
 using EywaClient.Core;
 
@@ -69,14 +71,14 @@ var eywa = new Eywa();
 try
 {
     eywa.OpenPipe();
-    
+
     // Get current task
     var task = await eywa.Tasks.GetTaskAsync();
     await eywa.Logger.InfoAsync("Robot started", new { taskId = task["euuid"] });
-    
-    // Update status  
+
+    // Update status
     await eywa.Tasks.UpdateTaskAsync(Status.Processing);
-    
+
     // Direct GraphQL - the power of dynamic approach!
     var result = await eywa.GraphQLAsync(@"
         query MyFiles($limit: Int!) {
@@ -85,14 +87,19 @@ try
                 folder { name path }
             }
         }", new { limit = 10 });
-    
-    // Access results dynamically - just like JavaScript!
-    var files = (List<object>)result["data"]["searchFile"];
-    foreach (Dictionary<string, object> file in files)
+
+    // Access results dynamically with JsonNode - natural indexer syntax!
+    var files = result?["data"]?["searchFile"]?.AsArray();
+    if (files != null)
     {
-        Console.WriteLine($"{file["name"]} - {file["size"]} bytes");
+        foreach (var file in files)
+        {
+            var name = file?["name"]?.GetValue<string>();
+            var size = file?["size"]?.GetValue<long>();
+            Console.WriteLine($"{name} - {size} bytes");
+        }
     }
-    
+
     await eywa.Tasks.CloseTaskAsync(Status.Success);
 }
 catch (Exception ex)
@@ -128,8 +135,8 @@ Core Infrastructure:
 
 ### Design Principles
 
-1. **Dynamic First**: All operations use `Dictionary<string, object>`
-2. **GraphQL Native**: Mirror GraphQL schema structures exactly
+1. **Dynamic First**: GraphQL responses use `JsonNode` for natural access patterns
+2. **GraphQL Native**: Mirror GraphQL schema structures exactly with dictionaries for inputs
 3. **Controlled UUIDs**: Client generates UUIDs for idempotent operations
 4. **Resource Management**: Proper disposal patterns throughout
 5. **Structured Logging**: Rich contextual logging for observability
@@ -220,6 +227,77 @@ await eywa.Files.UploadAsync("local-file.pdf", fileData);
 
 ---
 
+## 📖 API Reference
+
+### Core Methods (Return `JsonNode?`)
+
+All data-returning methods use `JsonNode` for natural indexer syntax:
+
+```csharp
+// GraphQL Operations
+Task<JsonNode?> GraphQLAsync(string query, object? variables = null)
+
+// Task Management
+Task<JsonNode?> GetTaskAsync()
+Task<JsonNode?> ReportAsync(string message, ReportOptions? options = null)
+Task UpdateTaskAsync(Status status)
+Task CloseTaskAsync(Status status)
+Task ReturnTaskAsync()
+
+// File Operations
+Task UploadAsync(string filepath, Dictionary<string, object> fileData)
+Task UploadStreamAsync(Stream stream, Dictionary<string, object> fileData)
+Task UploadContentAsync(byte[] content, Dictionary<string, object> fileData)
+Task<byte[]> DownloadAsync(string fileUuid)
+Task<StreamResult> DownloadStreamAsync(string fileUuid)
+Task<JsonNode?> CreateFolderAsync(Dictionary<string, object> folderData)
+Task<bool> DeleteFileAsync(string fileUuid)
+Task<bool> DeleteFolderAsync(string folderUuid)
+
+// Logging (all async, no return value)
+Task InfoAsync(string message, object? data = null)
+Task DebugAsync(string message, object? data = null)
+Task WarnAsync(string message, object? data = null)
+Task ErrorAsync(string message, object? data = null)
+Task TraceAsync(string message, object? data = null)
+Task ExceptionAsync(string message, object? data = null)
+
+// Low-level JSON-RPC (advanced)
+Task<JsonNode?> SendRequestAsync(string method, object? parameters = null)
+Task SendNotificationAsync(string method, object? parameters = null)
+```
+
+### Working with JsonNode Results
+
+```csharp
+// Access values with null-safe navigation
+var task = await eywa.Tasks.GetTaskAsync();
+var taskId = task?["euuid"]?.GetValue<string>();
+var taskName = task?["name"]?.GetValue<string>();
+
+// GraphQL results
+var result = await eywa.GraphQLAsync(query, variables);
+var files = result?["data"]?["searchFile"]?.AsArray();
+
+// Iterate arrays
+if (files != null)
+{
+    foreach (var file in files)
+    {
+        var name = file?["name"]?.GetValue<string>();
+        var size = file?["size"]?.GetValue<long>();
+        Console.WriteLine($"{name}: {size} bytes");
+    }
+}
+
+// Folder creation result
+var folder = await eywa.Files.CreateFolderAsync(folderData);
+var folderUuid = folder?["euuid"]?.GetValue<string>();
+var folderPath = folder?["path"]?.GetValue<string>();
+```
+
+---
+
 ## 🔧 Installation & Setup
 
 ### Requirements
@@ -242,6 +320,7 @@ Install-Package EywaClient
 
 ```csharp
 // Program.cs
+using System.Text.Json.Nodes;
 using EywaClient;
 using EywaClient.Core;
 
@@ -273,6 +352,7 @@ class Program
 ### 1. Standard Robot Pattern
 
 ```csharp
+using System.Text.Json.Nodes;
 using EywaClient;
 using EywaClient.Core;
 
@@ -345,43 +425,35 @@ finally
 }
 ```
 
-### 3. Safe Data Extraction Pattern
+### 3. Safe Data Extraction with JsonNode
 
 ```csharp
-// ✅ GOOD - Safe data extraction utility
-static T GetValueSafely<T>(Dictionary<string, object> dict, string key, T defaultValue = default)
+// ✅ GOOD - JsonNode provides natural null-safe navigation
+var result = await eywa.GraphQLAsync(query, variables);
+
+// Safe access with null-coalescing
+var userName = result?["data"]?["user"]?["name"]?.GetValue<string>() ?? "Unknown";
+var userAge = result?["data"]?["user"]?["age"]?.GetValue<int>() ?? 0;
+
+// Check for existence before accessing
+if (result?["data"]?["user"] is JsonNode userNode)
 {
-    if (!dict.TryGetValue(key, out var value)) 
-        return defaultValue;
-    
-    if (value is JsonElement jsonElement)
-    {
-        try
-        {
-            return JsonSerializer.Deserialize<T>(jsonElement.GetRawText()) ?? defaultValue;
-        }
-        catch
-        {
-            return defaultValue;
-        }
-    }
-    
-    if (value is T directValue)
-        return directValue;
-        
-    try
-    {
-        return (T)Convert.ChangeType(value, typeof(T));
-    }
-    catch
-    {
-        return defaultValue;
-    }
+    var name = userNode["name"]?.GetValue<string>();
+    var email = userNode["email"]?.GetValue<string>();
+    Console.WriteLine($"User: {name} ({email})");
 }
 
-// Usage
-var fileName = GetValueSafely<string>(fileDict, "name", "unknown.txt");
-var fileSize = GetValueSafely<long>(fileDict, "size", 0L);
+// Working with arrays
+var files = result?["data"]?["searchFile"]?.AsArray();
+if (files != null)
+{
+    foreach (var file in files)
+    {
+        var fileName = file?["name"]?.GetValue<string>() ?? "unknown";
+        var fileSize = file?["size"]?.GetValue<long>() ?? 0L;
+        Console.WriteLine($"{fileName}: {fileSize} bytes");
+    }
+}
 ```
 
 ---
@@ -527,8 +599,17 @@ var result = await eywa.GraphQLAsync(@"
         }
     }", new { limit = 10 });
 
-// Extract data
-var files = (List<object>)result["data"]["searchFile"];
+// Extract data with JsonNode
+var files = result?["data"]?["searchFile"]?.AsArray();
+if (files != null)
+{
+    foreach (var file in files)
+    {
+        var name = file?["name"]?.GetValue<string>();
+        var size = file?["size"]?.GetValue<long>();
+        Console.WriteLine($"{name}: {size} bytes");
+    }
+}
 ```
 
 ### Complex Queries with Filtering
@@ -611,30 +692,30 @@ await eywa.GraphQLAsync(batchMutation, new { files = fileBatch });
 ### Safe GraphQL Execution
 
 ```csharp
-async Task<Dictionary<string, object>?> SafeGraphQLQuery(Eywa eywa, string query, object? variables = null)
+async Task<JsonNode?> SafeGraphQLQuery(Eywa eywa, string query, object? variables = null)
 {
     try
     {
         var result = await eywa.GraphQLAsync(query, variables);
-        
+
         // Check for GraphQL errors in response
-        if (result.ContainsKey("errors"))
+        if (result?["errors"] != null)
         {
-            var errors = JsonSerializer.Serialize(result["errors"]);
-            await eywa.Logger.ErrorAsync("GraphQL query returned errors", new { 
+            var errors = result["errors"]?.ToJsonString();
+            await eywa.Logger.ErrorAsync("GraphQL query returned errors", new {
                 query = query.Substring(0, Math.Min(100, query.Length)) + "...",
-                errors = errors 
+                errors = errors
             });
             return null;
         }
-        
+
         return result;
     }
     catch (GraphQLException ex)
     {
-        await eywa.Logger.ErrorAsync("GraphQL exception", new { 
+        await eywa.Logger.ErrorAsync("GraphQL exception", new {
             query = query.Substring(0, Math.Min(100, query.Length)) + "...",
-            error = ex.Message 
+            error = ex.Message
         });
         return null;
     }
@@ -1006,12 +1087,16 @@ var tasks = filePaths.Select(filepath => UploadSingleFile(filepath)); // No limi
 await Task.WhenAll(tasks); // Could create 1000s of concurrent connections
 ```
 
-### ❌ DON'T: Assume Direct Type Access
+### ❌ DON'T: Forget to use GetValue<T>()
 
 ```csharp
-// ❌ BAD - Assumes direct type access
-var fileName = (string)fileDict["name"]; // Might be JsonElement!
-var fileSize = (long)fileDict["size"];   // Might fail with InvalidCastException!
+// ❌ BAD - Trying to cast JsonNode directly
+var fileName = (string)result["data"]["file"]["name"]; // Won't work!
+var fileSize = (long)result["data"]["file"]["size"];   // InvalidCastException!
+
+// ✅ GOOD - Use GetValue<T>() for type conversion
+var fileName = result?["data"]?["file"]?["name"]?.GetValue<string>();
+var fileSize = result?["data"]?["file"]?["size"]?.GetValue<long>();
 ```
 
 ### ❌ DON'T: Forget Task Lifecycle Management
@@ -1074,10 +1159,11 @@ public async Task TestCompleteFileWorkflow()
                     folder { euuid name }
                 }
             }", new { uuid = fileUuid });
-        
-        // Verify data
-        var fileResult = ExtractFileFromResult(result);
-        Assert.AreEqual("test.txt", GetValueSafely<string>(fileResult, "name"));
+
+        // Verify data with JsonNode
+        var fileResult = result?["data"]?["getFile"];
+        Assert.IsNotNull(fileResult);
+        Assert.AreEqual("test.txt", fileResult?["name"]?.GetValue<string>());
         
         // Download and verify content
         var downloadedBytes = await eywa.Files.DownloadAsync(fileUuid);
@@ -1114,40 +1200,36 @@ public void TestFileUpload_Mocked()
 
 ## 🔧 Troubleshooting
 
-### Issue: JsonElement Conversion Problems
+### Issue: Accessing JsonNode Values
 
-**Problem**: Getting JsonElement when expecting native types
+**Problem**: Need to extract typed values from JsonNode
 
-**Solution**: Use safe conversion helper
+**Solution**: Use `GetValue<T>()` with null-safe navigation
 
 ```csharp
-static T GetValueSafely<T>(Dictionary<string, object> dict, string key, T defaultValue = default)
+// ✅ GOOD - Null-safe access with defaults
+var result = await eywa.GraphQLAsync(query);
+
+var userName = result?["data"]?["user"]?["name"]?.GetValue<string>() ?? "Unknown";
+var userAge = result?["data"]?["user"]?["age"]?.GetValue<int>() ?? 0;
+var isActive = result?["data"]?["user"]?["active"]?.GetValue<bool>() ?? false;
+
+// For nested objects, check for null first
+if (result?["data"]?["user"] is JsonNode userNode)
 {
-    if (!dict.TryGetValue(key, out var value)) 
-        return defaultValue;
-    
-    if (value is JsonElement jsonElement)
+    var name = userNode["name"]?.GetValue<string>();
+    var email = userNode["email"]?.GetValue<string>();
+    // Process user data...
+}
+
+// For arrays
+var items = result?["data"]?["items"]?.AsArray();
+if (items != null)
+{
+    foreach (var item in items)
     {
-        try
-        {
-            return JsonSerializer.Deserialize<T>(jsonElement.GetRawText()) ?? defaultValue;
-        }
-        catch
-        {
-            return defaultValue;
-        }
-    }
-    
-    if (value is T directValue)
-        return directValue;
-    
-    try
-    {
-        return (T)Convert.ChangeType(value, typeof(T));
-    }
-    catch
-    {
-        return defaultValue;
+        var id = item?["id"]?.GetValue<string>();
+        // Process each item...
     }
 }
 ```
@@ -1197,6 +1279,7 @@ async Task<bool> EnsureEywaConnection(Eywa eywa)
 ### Complete Robot Example
 
 ```csharp
+using System.Text.Json.Nodes;
 using EywaClient;
 using EywaClient.Core;
 
@@ -1230,7 +1313,7 @@ class DataProcessingRobot
                 {
                     await ProcessSingleFile(eywa, file);
                     processedCount++;
-                    
+
                     if (processedCount % 10 == 0)
                     {
                         await eywa.Logger.InfoAsync($"Progress: {processedCount}/{filesToProcess.Count} files processed");
@@ -1240,8 +1323,8 @@ class DataProcessingRobot
                 {
                     errorCount++;
                     await eywa.Logger.ErrorAsync("Failed to process file", new {
-                        fileId = file["euuid"],
-                        fileName = file["name"],
+                        fileId = file?["euuid"]?.GetValue<string>(),
+                        fileName = file?["name"]?.GetValue<string>(),
                         error = ex.Message
                     });
                 }
@@ -1296,7 +1379,7 @@ class DataProcessingRobot
         }
     }
     
-    static async Task<List<Dictionary<string, object>>> GetFilesToProcess(Eywa eywa)
+    static async Task<List<JsonNode>> GetFilesToProcess(Eywa eywa)
     {
         var result = await eywa.GraphQLAsync(@"
             query GetProcessableFiles {
@@ -1305,27 +1388,29 @@ class DataProcessingRobot
                     folder { name }
                 }
             }");
-            
-        var files = (List<object>)result["data"]["searchFile"];
-        return files.Cast<Dictionary<string, object>>().ToList();
+
+        var files = result?["data"]?["searchFile"]?.AsArray();
+        return files?.ToList() ?? new List<JsonNode>();
     }
-    
-    static async Task ProcessSingleFile(Eywa eywa, Dictionary<string, object> file)
+
+    static async Task ProcessSingleFile(Eywa eywa, JsonNode file)
     {
-        var fileUuid = file["euuid"].ToString();
+        var fileUuid = file?["euuid"]?.GetValue<string>();
+        if (fileUuid == null) return;
         
         // Download file
         var fileBytes = await eywa.Files.DownloadAsync(fileUuid);
         
         // Process file content (your specific logic here)
         var processedContent = ProcessFileContent(fileBytes);
-        
+
         // Upload processed result
         var resultUuid = Guid.NewGuid().ToString();
+        var fileName = file?["name"]?.GetValue<string>() ?? "processed-file";
         await eywa.Files.UploadContentAsync(processedContent, new Dictionary<string, object>
         {
             ["euuid"] = resultUuid,
-            ["name"] = $"processed-{file["name"]}",
+            ["name"] = $"processed-{fileName}",
             ["folder"] = eywa.Files.RootFolder,
             ["content_type"] = "text/plain"
         });
@@ -1361,14 +1446,14 @@ eywa run -c "dotnet run --project DataProcessingRobot.csproj"
 
 The EYWA C# client excels when you:
 
-1. **Embrace the dynamic approach** - Use `Dictionary<string, object>` naturally
-2. **Write GraphQL directly** - Don't fight the GraphQL-first design  
+1. **Embrace JsonNode** - Natural indexer syntax perfect for RPA/microservices
+2. **Write GraphQL directly** - Don't fight the GraphQL-first design
 3. **Handle resources properly** - Always dispose, manage streams carefully
 4. **Structure for maintainability** - Use consistent patterns and error handling
 5. **Test integration scenarios** - Verify end-to-end workflows
 6. **Monitor and log effectively** - Use structured logging for observability
 
-**Key Principle**: This client abstracts protocol complexity (S3 uploads, JSON-RPC) but preserves query complexity (GraphQL). This gives you maximum flexibility while handling the tedious protocol details.
+**Key Principle**: This client abstracts protocol complexity (S3 uploads, JSON-RPC) but preserves query complexity (GraphQL). JsonNode provides the perfect balance—dynamic access without the complexity of recursive Dictionary conversions.
 
 ---
 

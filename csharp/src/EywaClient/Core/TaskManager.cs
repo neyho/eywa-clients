@@ -1,12 +1,13 @@
 /// <summary>
 /// EYWA Task Manager - Simple task lifecycle management and reporting
-/// 
+///
 /// Handles task status updates and structured reporting using dynamic data structures
 /// to stay GraphQL-aligned.
 /// </summary>
 
 using System;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using EywaClient.Core;
 
 namespace EywaClient.Core;
@@ -84,30 +85,12 @@ public class TaskManager
     /// <summary>
     /// Get current task information
     /// </summary>
-    public async Task<Dictionary<string, object>> GetTaskAsync()
+    public async Task<JsonNode?> GetTaskAsync()
     {
         var response = await _client.SendRequestAsync("task.get");
-        
+
         // Extract result from JSON-RPC response
-        var resultObj = response.GetValueOrDefault("result");
-        Dictionary<string, object> result;
-        
-        if (resultObj is JsonElement jsonElement)
-        {
-            // Convert JsonElement to Dictionary
-            var resultJson = jsonElement.GetRawText();
-            result = JsonSerializer.Deserialize<Dictionary<string, object>>(resultJson) ?? new Dictionary<string, object>();
-        }
-        else if (resultObj is Dictionary<string, object> dict)
-        {
-            result = dict;
-        }
-        else
-        {
-            result = new Dictionary<string, object>();
-        }
-        
-        return result;
+        return response?["result"];
     }
     
     /// <summary>
@@ -168,21 +151,21 @@ public class TaskManager
     /// <exception cref="InvalidOperationException">Thrown when no active task found</exception>
     /// <exception cref="ArgumentException">Thrown when image data is invalid base64</exception>
     /// <exception cref="Exception">Thrown when GraphQL mutation fails</exception>
-    public async Task<Dictionary<string, object>?> ReportAsync(string message, ReportOptions? options = null)
+    public async Task<JsonNode?> ReportAsync(string message, ReportOptions? options = null)
     {
         // Get current task UUID
         string currentTaskUuid;
         try
         {
             var task = await GetTaskAsync();
-            
+
             // Debug: Log the task structure to understand what we're getting
-            Console.WriteLine($"DEBUG: Task structure: {JsonSerializer.Serialize(task)}");
-            
-            currentTaskUuid = task.GetValueOrDefault("euuid")?.ToString() ?? 
-                            task.GetValueOrDefault("id")?.ToString() ?? 
-                            task.GetValueOrDefault("uuid")?.ToString() ?? 
-                            throw new InvalidOperationException($"Task UUID not found in task data: {JsonSerializer.Serialize(task)}");
+            Console.WriteLine($"DEBUG: Task structure: {task?.ToJsonString()}");
+
+            currentTaskUuid = task?["euuid"]?.GetValue<string>() ??
+                            task?["id"]?.GetValue<string>() ??
+                            task?["uuid"]?.GetValue<string>() ??
+                            throw new InvalidOperationException($"Task UUID not found in task data: {task?.ToJsonString()}");
         }
         catch (Exception ex)
         {
@@ -238,9 +221,9 @@ public class TaskManager
         try
         {
             await _client.SendNotificationAsync("task.report", reportData);
-            
+
             // Return a basic success response since task.report is a notification
-            return new Dictionary<string, object>
+            var response = new Dictionary<string, object>
             {
                 ["euuid"] = Guid.NewGuid().ToString(),
                 ["message"] = message,
@@ -249,6 +232,10 @@ public class TaskManager
                 ["has_image"] = reportData.GetValueOrDefault("has_image", false),
                 ["success"] = true
             };
+
+            // Convert to JsonNode
+            var json = JsonSerializer.Serialize(response);
+            return JsonNode.Parse(json);
         }
         catch (Exception ex)
         {
@@ -340,27 +327,5 @@ public class TaskManager
         }
 
         return result;
-    }
-
-    /// <summary>
-    /// Convert JsonElement to appropriate .NET object
-    /// </summary>
-    private static object? ConvertJsonElement(object? value)
-    {
-        if (value is JsonElement jsonElement)
-        {
-            return jsonElement.ValueKind switch
-            {
-                JsonValueKind.Object => JsonSerializer.Deserialize<Dictionary<string, object>>(jsonElement.GetRawText()),
-                JsonValueKind.Array => JsonSerializer.Deserialize<object[]>(jsonElement.GetRawText()),
-                JsonValueKind.String => jsonElement.GetString(),
-                JsonValueKind.Number => jsonElement.TryGetInt64(out var longValue) ? longValue : jsonElement.GetDouble(),
-                JsonValueKind.True => true,
-                JsonValueKind.False => false,
-                JsonValueKind.Null => null,
-                _ => jsonElement.GetRawText()
-            };
-        }
-        return value;
     }
 }

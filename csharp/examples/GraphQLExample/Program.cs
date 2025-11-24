@@ -12,6 +12,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using EywaClient;
 using EywaClient.Core;
 
@@ -77,14 +78,15 @@ async Task CreateUser(Eywa eywa)
     };
     
     var result = await eywa.GraphQLAsync(query, variables);
-    
+
     // Extract and display the actual user data
-    if (TryGetGraphQLData(result, "stackUser", out var user))
+    var user = result?["data"]?["stackUser"];
+    if (user != null)
     {
         Console.WriteLine("✅ User Created Successfully:");
-        Console.WriteLine($"   UUID: {(user != null ? GetValue(user, "euuid") : "(null)")}");
-        Console.WriteLine($"   Name: {(user != null ? GetValue(user, "name") : "(null)")}");
-        Console.WriteLine($"   Created: {(user != null ? GetValue(user, "modified_on") : "(null)")}");
+        Console.WriteLine($"   UUID: {user["euuid"]?.GetValue<string>() ?? "(null)"}");
+        Console.WriteLine($"   Name: {user["name"]?.GetValue<string>() ?? "(null)"}");
+        Console.WriteLine($"   Created: {user["modified_on"]?.GetValue<string>() ?? "(null)"}");
     }
     else
     {
@@ -110,15 +112,16 @@ async Task SearchUser(Eywa eywa)
     };
     
     var result = await eywa.GraphQLAsync(query, variables);
-    
+
     // Extract and display the user search results
-    if (TryGetGraphQLData(result, "getUser", out var user))
+    var user = result?["data"]?["getUser"];
+    if (user != null)
     {
         Console.WriteLine("✅ User Found:");
-        Console.WriteLine($"   UUID: {(user != null ? GetValue(user, "euuid") : "(null)")}");
-        Console.WriteLine($"   Name: {(user != null ? GetValue(user, "name") : "(null)")}");
-        Console.WriteLine($"   Type: {(user != null ? GetValue(user, "type") ?? "(not set)" : "(null)")}");
-        Console.WriteLine($"   Last Modified: {(user != null ? GetValue(user, "modified_on") : "(null)")}");
+        Console.WriteLine($"   UUID: {user["euuid"]?.GetValue<string>() ?? "(null)"}");
+        Console.WriteLine($"   Name: {user["name"]?.GetValue<string>() ?? "(null)"}");
+        Console.WriteLine($"   Type: {user["type"]?.GetValue<string>() ?? "(not set)"}");
+        Console.WriteLine($"   Last Modified: {user["modified_on"]?.GetValue<string>() ?? "(null)"}");
     }
     else
     {
@@ -141,11 +144,13 @@ async Task DeleteUser(Eywa eywa)
         };
         
         var result = await eywa.GraphQLAsync(query, variables);
-        
+
         // Extract and display deletion result
-        if (TryGetGraphQLData(result, "deleteUser", out var deleteResult))
+        var deleteResult = result?["data"]?["deleteUser"];
+        if (deleteResult != null)
         {
-            if (deleteResult is bool deleted && deleted)
+            var deleted = deleteResult.GetValue<bool>();
+            if (deleted)
             {
                 Console.WriteLine("✅ User Successfully Deleted");
             }
@@ -163,66 +168,4 @@ async Task DeleteUser(Eywa eywa)
     {
         Console.WriteLine($"Cleanup warning: {ex.Message}");
     }
-}
-
-
-static bool TryGetGraphQLData(Dictionary<string, object> result, string fieldName, out object? data)
-{
-    data = null;
-    
-    if (!result.ContainsKey("data"))
-        return false;
-        
-    var dataObj = result["data"];
-    
-    // Handle JsonElement
-    if (dataObj is JsonElement dataElement)
-    {
-        if (dataElement.TryGetProperty(fieldName, out var fieldElement))
-        {
-            // Convert JsonElement to appropriate type
-            if (fieldElement.ValueKind == JsonValueKind.Object)
-            {
-                var fieldJson = fieldElement.GetRawText();
-                data = JsonSerializer.Deserialize<Dictionary<string, object>>(fieldJson) ?? new Dictionary<string, object>();
-            }
-            else if (fieldElement.ValueKind == JsonValueKind.True)
-            {
-                data = true;
-            }
-            else if (fieldElement.ValueKind == JsonValueKind.False)
-            {
-                data = false;
-            }
-            else if (fieldElement.ValueKind == JsonValueKind.Null)
-            {
-                data = "(null)";
-            }
-            else
-            {
-                data = fieldElement.ToString();
-            }
-            return true;
-        }
-    }
-    // Handle Dictionary
-    else if (dataObj is Dictionary<string, object> dataDict)
-    {
-        if (dataDict.ContainsKey(fieldName))
-        {
-            data = dataDict[fieldName];
-            return true;
-        }
-    }
-    
-    return false;
-}
-
-static string GetValue(object? obj, string key)
-{
-    if (obj is Dictionary<string, object> dict)
-    {
-        return dict.GetValueOrDefault(key)?.ToString() ?? "(null)";
-    }
-    return "(not a dictionary)";
 }

@@ -152,59 +152,46 @@ type Mutation {
     "python -m examples.echo"])
 
 
-  """Example EYWA dataset GraphQL robot"""
-  babashkaEYWAGraphqlExample:STDResult
+  """Example infinite loop robot with signal handling.
+  Runs continuously until stopped, sends progress reports every 10 iterations."""
+  pythonLoopExample:STDResult
   @robot(
-    euuid: "095aa4ed-2683-4326-9a5e-f92b7069a724"
-    name: "EYWA Dataset Example in Babaska"
-    task_message: "Assigned!")
+    euuid: "1a2b3c4d-5e6f-7890-abcd-ef1234567890"
+    name: "Python Infinite Loop Example"
+    task_message: "Loop robot started!")
     @execute(commands: [
-    "cd bb"
-    "bb -m reacher.rpc"])
+    "cd py"
+    "python examples/loop.py"])
 
 
-  """Example webdriver robot that opens browser than
-  navigates to list of 'sites' URL and afther that closes
-  browser."""
-  nodeJSWebdriverPimple:STDResult
+  """Example EYWA Files API demonstration.
+  Shows file upload, download, folder operations, and GraphQL queries."""
+  pythonSimpleFilesDemo:STDResult
   @robot(
-    euuid: "70040b24-824f-4e9d-8474-877875f8534d"
-    name: "NodeJS Webdriver example"
-    task_message: """Sites:{% for site in sites %}
-        *  {{site}}{% endfor %}"""
-  )
-  @execute(commands: [
-    "cd nodejs"
-    "node examples/webdriver.js"]
-  )
+    euuid: "2b3c4d5e-6f78-90ab-cdef-123456789abc"
+    name: "Python Simple Files Demo"
+    task_message: "Files demo starting!")
+    @execute(commands: [
+    "cd py"
+    "python examples/simple_files_demo.py"])
 
 
-
-  """Example EYWA dataset GraphQL robot in
-  Python using eywa reacher library"""
-  nodeJSGraphQLdimple2:STDResult
+  """Comprehensive task reporting test with structured reports.
+  Demonstrates progress reporting, multi-table reports, and markdown cards."""
+  pythonTaskReportingTest(
+    target: String
+    @label(value: "Processing target")
+    @placeholder(value: "users")
+    batch_size: Int
+    @label(value: "Batch size")
+    @placeholder(value: "25")
+  ):STDResult
+  @form_input
   @robot(
-    euuid: "ccaea1f9-091f-4c19-8512-fdaaa79fb1ff"
-    name: "NodeJS GraphQL example"
-    task_message: """Check my tenis"""
-  )
-  @execute(commands: [
-    "cd nodejs"
-    "node examples/graphql.js"]
-  )
-
-
-
-  """Example NodeJS robot that never ends. It is in loop until process is killed.
-  Sends log in intervals of 10 seconds"""
-  nodeJSHangExample:STDResult
-  @robot(
-    euuid: "0d9e2239-3c07-41a2-910d-7cbd08e7fdd3"
-    name: "NodeJS Hanging example"
-    task_message: """Stoooopppp mmeeee"""
-  )
-  @execute(commands: [
-    "cd nodejs"
-    "node examples/hanging.js"]
-  )
+    euuid: "3c4d5e6f-7890-abcd-ef12-3456789abcde"
+    name: "Python Task Reporting Test"
+    task_message: "Processing {{target}} with batch size {{batch_size}}")
+    @execute(commands: [
+    "cd py"
+    "python examples/task_reporting_test.py"])
 }

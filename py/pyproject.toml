@@ -1,6 +1,6 @@
 [build-system]
-requires = ["flit_core >=3.2,<4"]
-build-backend = "flit_core.buildapi"
+requires = ["setuptools>=45", "wheel"]
+build-backend = "setuptools.build_meta"
 
 
 [project]
@@ -22,7 +22,7 @@ classifiers = [
     "Topic :: Software Development :: Libraries :: Python Modules",
 ]
 keywords = ["eywa", "client", "json-rpc", "graphql", "robotics", "automation"]
-version = "0.3.3"
+version = "0.3.6"
 description = "EYWA client library for Python providing JSON-RPC communication, GraphQL queries, and task management for EYWA robots"
 dependencies = [
   "nanoid>=2.0.0",
@@ -35,11 +35,8 @@ Homepage = "https://github.com/neyho/eywa"
 Repository = "https://github.com/neyho/eywa.git"
 Issues = "https://github.com/neyho/eywa/issues"
 
+[tool.setuptools]
+packages = ["eywa", "eywa_files"]
 
-[tool.flit.module]
-name = "eywa"
-source-directory = "src"
-
-
-[tool.flit.sdist]
-exclude = ["examples", ".DS_Store", "eywa.edn", "robotics.graphql", "dist"]
+[tool.setuptools.package-dir]
+"" = "src"

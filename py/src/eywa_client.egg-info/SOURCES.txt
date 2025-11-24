@@ -1,0 +1,11 @@
+LICENSE
+README.md
+pyproject.toml
+src/eywa/__init__.py
+src/eywa/eywa.pyi
+src/eywa_client.egg-info/PKG-INFO
+src/eywa_client.egg-info/SOURCES.txt
+src/eywa_client.egg-info/dependency_links.txt
+src/eywa_client.egg-info/requires.txt
+src/eywa_client.egg-info/top_level.txt
+src/eywa_files/__init__.py
