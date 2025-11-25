@@ -642,7 +642,7 @@ async def graphql(query, variables=None):
         }
     )
     # Return the data directly - errors already raise JSONRPCException
-    return response.get("result", {})
+    return response
 
 
 # File operations are now available as a separate module:
