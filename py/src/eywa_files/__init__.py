@@ -800,7 +800,6 @@ async def create_folder(folder_data: Dict[str, Any]) -> Dict[str, Any]:
     folder_input = {**folder_data, "euuid": folder_uuid}
 
     result = await _graphql(mutation, {"folder": folder_input})
-    print(f"CREATE FOLDER RAW {result}")
     return result.get("stackFolder")
 
 
