@@ -38,7 +38,7 @@ async def main():
             }
         }""")
 
-        users = users_result.get("data", {}).get("searchUser", [])
+        users = users_result.get("searchUser", [])
         eywa.info(f"Found {len(users)} users")
 
         for user in users:
@@ -57,7 +57,7 @@ async def main():
             }
         }""")
 
-        tasks = tasks_result.get("data", {}).get("searchTask", [])
+        tasks = tasks_result.get("searchTask", [])
         eywa.info(f"Found {len(tasks)} recent tasks")
 
         for task in tasks:

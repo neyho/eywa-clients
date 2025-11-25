@@ -226,38 +226,67 @@ async def _download_to_bytes(url: str) -> Dict[str, Any]:
 # Core Upload Operations (Protocol Abstraction)
 # ============================================================================
 
+async def _resolve_folder(file_data: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Resolve folder from file_data, handling folder_path if provided.
+
+    If folder_path is provided, uses ensure_path to create folders as needed
+    and replaces it with folder reference.
+
+    Returns modified file_data dict (does not mutate original).
+    """
+    if 'folder_path' not in file_data:
+        return file_data
+
+    folder_path = file_data['folder_path']
+    folder = await ensure_path(folder_path)
+
+    # Create new dict without folder_path, with folder reference
+    result = {k: v for k, v in file_data.items() if k != 'folder_path'}
+    result['folder'] = {'euuid': folder['euuid']}
+    return result
+
+
 async def upload(filepath: Union[str, Path], file_data: Dict[str, Any]) -> None:
     """
     Upload a file to EYWA using the 3-step protocol.
-    
+
     Args:
         filepath: Path to the file to upload (string or Path object)
         file_data: Dict with file metadata:
             euuid: str (optional, auto-generated if not provided)
             name: str (optional, defaults to filename)
-            folder: dict (optional, {\"euuid\": \"...\"} or {\"path\": \"...\"})
+            folder: dict (optional, {"euuid": "..."})
+            folder_path: str (optional, e.g. "/projects/2024/" - creates folders if needed)
             content_type: str (optional, auto-detected if not provided)
             size: int (optional, auto-calculated from file)
             progress_fn: callable (optional, not sent to GraphQL)
-    
+
     Returns:
         None on success
-        
+
     Raises:
         FileUploadError: If upload fails at any stage
-        
+
     Examples:
-        # Simple upload
-        await upload(\"test.txt\", {\"name\": \"test.txt\"})
-        
-        # Upload to folder with client UUID
-        await upload(\"test.txt\", {
-            \"euuid\": str(uuid.uuid4()),
-            \"name\": \"test.txt\",
-            \"folder\": {\"euuid\": folder_uuid}
+        # Simple upload to root
+        await upload("test.txt", {"name": "test.txt"})
+
+        # Upload to folder by UUID
+        await upload("test.txt", {
+            "name": "test.txt",
+            "folder": {"euuid": folder_uuid}
+        })
+
+        # Upload with folder_path (auto-creates folders)
+        await upload("report.pdf", {
+            "name": "report.pdf",
+            "folder_path": "/projects/2024/reports/"
         })
     """
     try:
+        # Resolve folder_path to folder reference if provided
+        file_data = await _resolve_folder(file_data)
         progress_fn = file_data.get('progress_fn')
         
         # Handle file input
@@ -294,11 +323,7 @@ async def upload(filepath: Union[str, Path], file_data: Dict[str, Any]) -> None:
         file_input.pop('progress_fn', None)
         
         result = await _graphql(upload_query, {"file": file_input})
-        
-        if result.get('error'):
-            raise FileUploadError(f"Failed to get upload URL: {result['error']}")
-        
-        upload_url = result.get('data', {}).get('requestUploadURL')
+        upload_url = result.get('requestUploadURL')
         if not upload_url:
             raise FileUploadError("No upload URL in response")
         
@@ -325,11 +350,7 @@ async def upload(filepath: Union[str, Path], file_data: Dict[str, Any]) -> None:
         """
         
         confirm_result = await _graphql(confirm_query, {"url": upload_url})
-        
-        if confirm_result.get('error'):
-            raise FileUploadError(f"Upload confirmation failed: {confirm_result['error']}")
-        
-        confirmed = confirm_result.get('data', {}).get('confirmFileUpload')
+        confirmed = confirm_result.get('confirmFileUpload')
         if not confirmed:
             raise FileUploadError("Upload confirmation returned false")
         
@@ -391,11 +412,7 @@ async def upload_stream(input_stream: AsyncIterator[bytes], file_data: Dict[str,
         file_input.pop('progress_fn', None)
         
         result = await _graphql(upload_query, {"file": file_input})
-        
-        if result.get('error'):
-            raise FileUploadError(f"Failed to get upload URL: {result['error']}")
-        
-        upload_url = result.get('data', {}).get('requestUploadURL')
+        upload_url = result.get('requestUploadURL')
         if not upload_url:
             raise FileUploadError("No upload URL in response")
         
@@ -422,11 +439,7 @@ async def upload_stream(input_stream: AsyncIterator[bytes], file_data: Dict[str,
         """
         
         confirm_result = await _graphql(confirm_query, {"url": upload_url})
-        
-        if confirm_result.get('error'):
-            raise FileUploadError(f"Upload confirmation failed: {confirm_result['error']}")
-        
-        confirmed = confirm_result.get('data', {}).get('confirmFileUpload')
+        confirmed = confirm_result.get('confirmFileUpload')
         if not confirmed:
             raise FileUploadError("Upload confirmation returned false")
         
@@ -441,24 +454,39 @@ async def upload_stream(input_stream: AsyncIterator[bytes], file_data: Dict[str,
 async def upload_content(content: Union[str, bytes], file_data: Dict[str, Any]) -> None:
     """
     Upload content directly from memory using the 3-step protocol.
-    
+
     Args:
         content: String or bytes content to upload
         file_data: Dict with file metadata:
             name: str (required)
             euuid: str (optional, auto-generated)
-            folder: dict (optional, {\"euuid\": \"...\"} or {\"path\": \"...\"}
+            folder: dict (optional, {"euuid": "..."})
+            folder_path: str (optional, e.g. "/projects/2024/" - creates folders if needed)
             content_type: str (optional, default: text/plain for strings)
             size: int (optional, auto-calculated from content)
             progress_fn: callable (optional)
-    
+
     Returns:
         None on success
-        
+
     Raises:
         FileUploadError: If upload fails at any stage
+
+    Examples:
+        # Upload JSON content with folder_path
+        await upload_content(
+            json.dumps({"key": "value"}),
+            {
+                "name": "data.json",
+                "content_type": "application/json",
+                "folder_path": "/exports/2024/"
+            }
+        )
     """
     try:
+        # Resolve folder_path to folder reference if provided
+        file_data = await _resolve_folder(file_data)
+
         if not file_data.get('name'):
             raise FileUploadError("name is required for content uploads")
         
@@ -495,11 +523,7 @@ async def upload_content(content: Union[str, bytes], file_data: Dict[str, Any]) 
         file_input.pop('progress_fn', None)
         
         result = await _graphql(upload_query, {"file": file_input})
-        
-        if result.get('error'):
-            raise FileUploadError(f"Failed to get upload URL: {result['error']}")
-        
-        upload_url = result.get('data', {}).get('requestUploadURL')
+        upload_url = result.get('requestUploadURL')
         if not upload_url:
             raise FileUploadError("No upload URL in response")
         
@@ -520,11 +544,7 @@ async def upload_content(content: Union[str, bytes], file_data: Dict[str, Any]) 
         """
         
         confirm_result = await _graphql(confirm_query, {"url": upload_url})
-        
-        if confirm_result.get('error'):
-            raise FileUploadError(f"Upload confirmation failed: {confirm_result['error']}")
-        
-        confirmed = confirm_result.get('data', {}).get('confirmFileUpload')
+        confirmed = confirm_result.get('confirmFileUpload')
         if not confirmed:
             raise FileUploadError("Upload confirmation returned false")
         
@@ -586,11 +606,7 @@ async def download_stream(file_uuid: str) -> Dict[str, Any]:
         """
         
         result = await _graphql(download_query, {"file": {"euuid": file_uuid}})
-        
-        if result.get('error'):
-            raise FileDownloadError(f"Failed to get download URL: {result['error']}")
-        
-        download_url = result.get('data', {}).get('requestDownloadURL')
+        download_url = result.get('requestDownloadURL')
         if not download_url:
             raise FileDownloadError("No download URL in response")
         
@@ -642,11 +658,7 @@ async def download(file_uuid: str, save_path: Optional[Union[str, Path]] = None,
         """
         
         result = await _graphql(download_query, {"file": {"euuid": file_uuid}})
-        
-        if result.get('error'):
-            raise FileDownloadError(f"Failed to get download URL: {result['error']}")
-        
-        download_url = result.get('data', {}).get('requestDownloadURL')
+        download_url = result.get('requestDownloadURL')
         if not download_url:
             raise FileDownloadError("No download URL in response")
         
@@ -716,42 +728,34 @@ async def create_folder(folder_data: Dict[str, Any]) -> Dict[str, Any]:
     Raises:
         Exception: If folder creation fails
     """
-    try:
-        # Generate UUID if not provided
-        import uuid
-        folder_uuid = folder_data.get('euuid') or str(uuid.uuid4())
-        
-        mutation = """
-        mutation CreateFolder($folder: FolderInput!) {
-            stackFolder(data: $folder) {
+    # Generate UUID if not provided
+    import uuid
+    folder_uuid = folder_data.get('euuid') or str(uuid.uuid4())
+
+    mutation = """
+    mutation CreateFolder($folder: FolderInput!) {
+        stackFolder(data: $folder) {
+            euuid
+            name
+            path
+            modified_on
+            parent {
                 euuid
                 name
                 path
-                modified_on
-                parent {
-                    euuid
-                    name
-                    path
-                }
             }
         }
-        """
-        
-        # Build GraphQL input
-        folder_input = {
-            **folder_data,
-            'euuid': folder_uuid
-        }
-        
-        result = await _graphql(mutation, {"folder": folder_input})
-        
-        if result.get('error'):
-            raise Exception(f"Failed to create folder: {result['error']}")
-        
-        return result.get('data', {}).get('stackFolder')
-        
-    except Exception as e:
-        raise e
+    }
+    """
+
+    # Build GraphQL input
+    folder_input = {
+        **folder_data,
+        'euuid': folder_uuid
+    }
+
+    result = await _graphql(mutation, {"folder": folder_input})
+    return result.get('stackFolder')
 
 
 async def delete_file(file_uuid: str) -> bool:
@@ -764,22 +768,14 @@ async def delete_file(file_uuid: str) -> bool:
     Returns:
         True if deletion successful, False otherwise
     """
-    try:
-        mutation = """
-        mutation DeleteFile($uuid: UUID!) {
-            deleteFile(euuid: $uuid)
-        }
-        """
-        
-        result = await _graphql(mutation, {"uuid": file_uuid})
-        
-        if result.get('error'):
-            raise Exception(f"Failed to delete file: {result['error']}")
-        
-        return result.get('data', {}).get('deleteFile', False)
-        
-    except Exception as e:
-        raise e
+    mutation = """
+    mutation DeleteFile($uuid: UUID!) {
+        deleteFile(euuid: $uuid)
+    }
+    """
+
+    result = await _graphql(mutation, {"uuid": file_uuid})
+    return result.get('deleteFile', False)
 
 
 async def delete_folder(folder_uuid: str) -> bool:
@@ -794,22 +790,111 @@ async def delete_folder(folder_uuid: str) -> bool:
     Returns:
         True if deletion successful, False otherwise
     """
-    try:
-        mutation = """
-        mutation DeleteFolder($uuid: UUID!) {
-            deleteFolder(euuid: $uuid)
+    mutation = """
+    mutation DeleteFolder($uuid: UUID!) {
+        deleteFolder(euuid: $uuid)
+    }
+    """
+
+    result = await _graphql(mutation, {"uuid": folder_uuid})
+    return result.get('deleteFolder', False)
+
+
+async def get_folder_by_path(path: str) -> Optional[Dict[str, Any]]:
+    """
+    Get a folder by its path.
+
+    Args:
+        path: Absolute path starting with "/", e.g. "/projects/2024/"
+
+    Returns:
+        Folder dict if found, None otherwise
+    """
+    # Normalize path to have trailing slash
+    normalized_path = path.rstrip("/") + "/" if path != "/" else "/"
+
+    query = """
+    query GetFolderByPath($path: String!) {
+        searchFolder(_where: {path: {_eq: $path}}, _limit: 1) {
+            euuid
+            name
+            path
+            modified_on
+            parent {
+                euuid
+                name
+                path
+            }
         }
-        """
-        
-        result = await _graphql(mutation, {"uuid": folder_uuid})
-        
-        if result.get('error'):
-            raise Exception(f"Failed to delete folder: {result['error']}")
-        
-        return result.get('data', {}).get('deleteFolder', False)
-        
-    except Exception as e:
-        raise e
+    }
+    """
+
+    result = await _graphql(query, {"path": normalized_path})
+    folders = result.get('searchFolder', [])
+    return folders[0] if folders else None
+
+
+async def ensure_path(path: str) -> Dict[str, Any]:
+    """
+    Ensure a folder path exists, creating missing folders as needed.
+
+    Args:
+        path: Absolute path starting with "/", e.g. "/projects/2024/reports/"
+
+    Returns:
+        The final folder dict with euuid, name, path, etc.
+
+    Raises:
+        ValueError: If path doesn't start with "/"
+
+    Example:
+        folder = await ensure_path("/projects/2024/reports/")
+        # Creates /projects/, /projects/2024/, /projects/2024/reports/ as needed
+    """
+    # Validate path
+    if not path.startswith("/"):
+        raise ValueError("Path must start with '/'")
+
+    # Normalize: ensure single trailing slash
+    path = path.rstrip("/") + "/" if path != "/" else "/"
+
+    # Root folder always exists
+    if path == "/":
+        return {"euuid": ROOT_UUID, "name": "", "path": "/"}
+
+    # Split into segments: "/projects/2024/reports/" -> ["projects", "2024", "reports"]
+    segments = [s for s in path.split("/") if s]
+
+    # Find deepest existing parent (query from deepest to root)
+    deepest_parent = None
+    missing_start_index = 0
+
+    for i in range(len(segments), 0, -1):
+        check_path = "/" + "/".join(segments[:i]) + "/"
+        folder = await get_folder_by_path(check_path)
+        if folder:
+            if i == len(segments):
+                # Full path already exists
+                return folder
+            # Found deepest existing parent
+            deepest_parent = folder
+            missing_start_index = i
+            break
+
+    # If nothing exists, start from root
+    if deepest_parent is None:
+        deepest_parent = {"euuid": ROOT_UUID, "name": "", "path": "/"}
+        missing_start_index = 0
+
+    # Create missing segments
+    parent = deepest_parent
+    for segment in segments[missing_start_index:]:
+        parent = await create_folder({
+            "name": segment,
+            "parent": {"euuid": parent["euuid"]}
+        })
+
+    return parent
 
 
 # ============================================================================
@@ -863,7 +948,11 @@ __all__ = [
     'create_folder',
     'delete_file',
     'delete_folder',
-    
+
+    # Path Operations
+    'get_folder_by_path',
+    'ensure_path',
+
     # Utility Functions
     'calculate_file_hash',
 ]

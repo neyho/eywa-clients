@@ -45,7 +45,7 @@ async def main():
         """
 
         result1 = await raw_graphql_query(simple_query)
-        users = result1.get("data", {}).get("searchUser", [])
+        users = result1.get("searchUser", [])
         eywa.info(f"Retrieved {len(users)} users")
         for user in users:
             eywa.info(f"  - {user['name']} ({user['type']})")
@@ -69,7 +69,7 @@ async def main():
         }
 
         result2 = await raw_graphql_query(query_with_vars, variables)
-        typed_users = result2.get("data", {}).get("searchUser", [])
+        typed_users = result2.get("searchUser", [])
         eywa.info(f"Found {len(typed_users)} HUMAN type users")
 
         # Example 3: Task query
@@ -86,7 +86,7 @@ async def main():
         """
 
         result3 = await raw_graphql_query(task_query)
-        tasks = result3.get("data", {}).get("searchTask", [])
+        tasks = result3.get("searchTask", [])
         eywa.info(f"Retrieved {len(tasks)} recent tasks")
 
         # Generate comprehensive report

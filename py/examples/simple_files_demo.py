@@ -52,17 +52,21 @@ class SimplifiedFilesDemo:
 
         # Delete files first
         for resource in self.test_resources:
-            try:
-                if resource["type"] == "file":
+            if resource["type"] == "file":
+                try:
                     await delete_file(resource["uuid"])
                     eywa.debug(f"Deleted file: {resource['uuid']}")
-                elif resource["type"] == "folder":
+                except Exception as e:
+                    eywa.warn(f"Failed to delete file {resource['uuid']}: {e}")
+
+        # Then delete folders
+        for resource in self.test_resources:
+            if resource["type"] == "folder":
+                try:
                     await delete_folder(resource["uuid"])
                     eywa.debug(f"Deleted folder: {resource['uuid']}")
-            except Exception as e:
-                eywa.warn(
-                    f"Failed to delete {resource['type']} {resource['uuid']}: {e}"
-                )
+                except Exception as e:
+                    eywa.warn(f"Failed to delete folder {resource['uuid']}: {e}")
 
     def track_resource(self, resource_type: str, resource_uuid: str, name: str):
         """Track resource for cleanup"""
@@ -109,7 +113,7 @@ class SimplifiedFilesDemo:
             {"uuid": folder_uuid},
         )
 
-        folder_info = verification.get("data", {}).get("getFolder")
+        folder_info = verification.get("getFolder")
         if folder_info:
             eywa.info(
                 f"✅ GraphQL verification: Folder exists with path {folder_info['path']}"
@@ -169,7 +173,7 @@ class SimplifiedFilesDemo:
                 {"uuid": file_uuid},
             )
 
-            file_info = verification.get("data", {}).get("getFile")
+            file_info = verification.get("getFile")
             if file_info:
                 eywa.info(
                     f"✅ GraphQL verification: File {file_info['name']} ({file_info['size']} bytes) in {file_info['folder']['path'] if file_info['folder'] else 'root'}"
@@ -266,7 +270,7 @@ class SimplifiedFilesDemo:
             files_query = await eywa.graphql(
                 """
                 query ListFilesInFolder($folderId: UUID!) {
-                    searchFile(, _order_by: {uploaded_at: desc}) {
+                    searchFile(_order_by: {uploaded_at: desc}) {
                         euuid
                         name
                         size
@@ -282,7 +286,7 @@ class SimplifiedFilesDemo:
                 {"folderId": folder_uuid},
             )
 
-            files = files_query.get("data", {}).get("searchFile", [])
+            files = files_query.get("searchFile", [])
             eywa.info(f"✅ Found {len(files)} files in folder:")
             for file in files:
                 eywa.info(
@@ -307,7 +311,7 @@ class SimplifiedFilesDemo:
             }
         """)
 
-        folders = folders_query.get("data", {}).get("searchFolder", [])
+        folders = folders_query.get("searchFolder", [])
         eywa.info(f"✅ Found {len(folders)} demo folders:")
         for folder in folders:
             file_count = folder.get("_count", {}).get("files", 0)

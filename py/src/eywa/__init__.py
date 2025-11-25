@@ -623,12 +623,26 @@ async def _get_eywa_module():
 
 
 async def graphql(query, variables=None):
-    return await send_request(
+    """
+    Execute a GraphQL query/mutation.
+
+    Returns the data directly (not wrapped in {"data": ...}).
+    Raises JSONRPCException if there's an error.
+
+    Example:
+        result = await eywa.graphql('''
+            query { searchUser(_limit: 5) { name email } }
+        ''')
+        users = result.get("searchUser", [])
+    """
+    response = await send_request(
         {
             "method": "eywa.datasets.graphql",
             "params": {"query": query, "variables": variables},
         }
     )
+    # Return the data directly - errors already raise JSONRPCException
+    return response.get("data", {})
 
 
 # File operations are now available as a separate module:

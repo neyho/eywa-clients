@@ -100,7 +100,7 @@ async def demo_user_operations():
     # Search existing users
     try:
         users_result = await search_users()
-        users = users_result.get("data", {}).get("searchUser", [])
+        users = users_result.get("searchUser", [])
         eywa.info(f"Found {len(users)} users in system")
         
         for user in users[:3]:  # Show first 3
@@ -113,12 +113,12 @@ async def demo_user_operations():
     test_username = "demo-user"
     try:
         existing_user = await get_user_by_name(test_username)
-        existing_users = existing_user.get("data", {}).get("searchUser", [])
+        existing_users = existing_user.get("searchUser", [])
         
         if not existing_users:
             eywa.info(f"Creating test user: {test_username}")
             create_result = await create_test_user(test_username, "demo-password")
-            if create_result.get("data", {}).get("syncUser"):
+            if create_result.get("syncUser"):
                 eywa.info(f"✅ Created user: {test_username}")
             else:
                 eywa.warn("Failed to create test user")
@@ -134,7 +134,7 @@ async def demo_task_operations():
     
     try:
         tasks_result = await search_tasks()
-        tasks = tasks_result.get("data", {}).get("searchTask", [])
+        tasks = tasks_result.get("searchTask", [])
         
         eywa.info(f"Found {len(tasks)} recent tasks")
         
@@ -206,13 +206,13 @@ async def demo_concurrent_operations():
         if isinstance(tasks_result, Exception):
             eywa.error(f"Tasks query failed: {tasks_result}")
         else:
-            tasks_count = len(tasks_result.get("data", {}).get("searchTask", []))
+            tasks_count = len(tasks_result.get("searchTask", []))
             eywa.info(f"✅ Concurrent tasks query: {tasks_count} results")
         
         if isinstance(users_result, Exception):
             eywa.error(f"Users query failed: {users_result}")
         else:
-            users_count = len(users_result.get("data", {}).get("searchUser", []))
+            users_count = len(users_result.get("searchUser", []))
             eywa.info(f"✅ Concurrent users query: {users_count} results")
             
     except Exception as e:
