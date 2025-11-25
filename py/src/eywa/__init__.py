@@ -29,6 +29,7 @@ def handle_data(data):
     id_ = data.get("id")
     result = data.get("result")
     error = data.get("error")
+    print(f"RPC response: {data}")
     if method:
         handle_request(data)
     elif result and id_:
@@ -697,4 +698,3 @@ def exit(status=0):
         logger.debug(f"Error during cleanup: {e}")
 
     sys.exit(status)
-
