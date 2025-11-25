@@ -90,6 +90,7 @@ class SimplifiedFilesDemo:
                 "parent": {"euuid": ROOT_UUID},
             }
         )
+        eywa.info(f"Create folder returned{folder}")
 
         eywa.info(f"✅ Created folder: {folder['name']} at {folder['path']}")
 
@@ -387,4 +388,3 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
-
