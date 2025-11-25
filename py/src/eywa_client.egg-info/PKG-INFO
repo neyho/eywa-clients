@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: eywa-client
-Version: 0.3.6
+Version: 0.4.0
 Summary: EYWA client library for Python providing JSON-RPC communication, GraphQL queries, and task management for EYWA robots
 Author-email: Robert Gersak <robi@neyho.com>
 License: MIT
@@ -34,16 +34,32 @@ Dynamic: license-file
 
 **MODERNIZED** EYWA client library for Python providing JSON-RPC communication, GraphQL queries, and **comprehensive file operations** for EYWA robots.
 
-## 🚀 Version 2.0 - Modernized Architecture
+## 🚀 Version 0.4.0 - Path-Based Operations
 
-This version has been completely modernized to match the Babashka and Node.js clients:
+**Breaking Change:** `eywa.graphql()` now returns data directly instead of wrapping in `{"data": ...}`.
 
+```python
+# Before (v0.3.x)
+result = await eywa.graphql("{ searchUser { name } }")
+users = result["data"]["searchUser"]
+
+# After (v0.4.0)
+result = await eywa.graphql("{ searchUser { name } }")
+users = result["searchUser"]  # Data returned directly
+```
+
+### New in v0.4.0
+- ✅ **`ensure_path()`** - Auto-create nested folder structures by path
+- ✅ **`get_folder_by_path()`** - Find folders by path string
+- ✅ **`folder_path` parameter** - Upload files with auto-created folders
+- ✅ **Simplified GraphQL API** - Returns data directly, errors raise exceptions
+
+### Existing Features
 - ✅ **Single Map Arguments** - API functions use single dict arguments that mirror GraphQL schema
 - ✅ **Client UUID Management** - Full control over file and folder UUIDs for deduplication
 - ✅ **Modern GraphQL Patterns** - Relationship filtering instead of broken WHERE clause patterns
 - ✅ **Complete Folder Operations** - Full folder hierarchy support (create, list, delete, info)
 - ✅ **Streaming Operations** - Memory-efficient uploads/downloads with progress tracking
-- ✅ **FILES_SPEC.md Compliance** - Implements all 12 core functions per specification
 
 ## Installation
 
@@ -205,6 +221,8 @@ from eywa_files import (
     create_folder,
     delete_file,
     delete_folder,
+    ensure_path,
+    get_folder_by_path,
     ROOT_UUID,
     ROOT_FOLDER,
     FileUploadError,
@@ -216,9 +234,60 @@ from eywa_files import (
 
 - **Single Map Arguments** - All functions use single dict arguments that mirror GraphQL schema
 - **Client UUID Control** - You generate and manage UUIDs for deterministic operations
-- **Modern GraphQL Filtering** - Uses relationship filtering instead of broken WHERE patterns
+- **Path-Based Operations** - Use `folder_path` or `ensure_path()` for intuitive folder management
 - **3-Step Upload Protocol** - Request URL → S3 Upload → Confirm
 - **Complete Folder Support** - Full hierarchy management
+
+### Path-Based Operations (NEW in v0.4.0)
+
+#### Upload with folder_path
+
+```python
+from eywa_files import upload, upload_content
+
+# Upload file with auto-created folder structure
+await upload("report.pdf", {
+    "name": "report.pdf",
+    "folder_path": "/projects/2024/reports/"  # Creates folders if needed
+})
+
+# Upload content with folder_path
+await upload_content(
+    json.dumps({"data": "value"}),
+    {
+        "name": "data.json",
+        "content_type": "application/json",
+        "folder_path": "/exports/2024/"
+    }
+)
+```
+
+#### ensure_path - Create Folder Structure
+
+```python
+from eywa_files import ensure_path
+
+# Create nested folders (idempotent - safe to call multiple times)
+folder = await ensure_path("/projects/2024/reports/")
+print(f"Folder ready: {folder['path']}")  # /projects/2024/reports/
+
+# Returns existing folder if path exists
+same_folder = await ensure_path("/projects/2024/reports/")
+assert folder["euuid"] == same_folder["euuid"]
+```
+
+#### get_folder_by_path - Find Folder
+
+```python
+from eywa_files import get_folder_by_path
+
+# Find folder by path
+folder = await get_folder_by_path("/projects/2024/")
+if folder:
+    print(f"Found: {folder['name']} ({folder['euuid']})")
+else:
+    print("Folder not found")
+```
 
 ### Constants
 
@@ -358,7 +427,7 @@ files_result = await eywa.graphql("""
     }
 """, {"folderUUID": folder_uuid})
 
-files = files_result["data"]["searchFile"]
+files = files_result["searchFile"]
 ```
 
 #### File Information
@@ -383,7 +452,7 @@ file_result = await eywa.graphql("""
     }
 """, {"uuid": file_uuid})
 
-file_info = file_result["data"]["getFile"]
+file_info = file_result["getFile"]
 if file_info:
     eywa.info(f"Name: {file_info['name']}")
     eywa.info(f"Size: {file_info['size']} bytes")
@@ -445,7 +514,7 @@ folders_result = await eywa.graphql("""
     }
 """, {"parentUUID": parent_folder_uuid})
 
-folders = folders_result["data"]["searchFolder"]
+folders = folders_result["searchFolder"]
 ```
 
 #### Folder Information
@@ -467,7 +536,7 @@ folder_result = await eywa.graphql("""
     }
 """, {"uuid": folder_uuid})
 
-folder = folder_result["data"]["getFolder"]
+folder = folder_result["getFolder"]
 if folder:
     eywa.info(f"Folder: {folder['name']} -> {folder['path']}")
 ```
@@ -549,7 +618,7 @@ async def file_operations_example():
             }
         """, {"folderUUID": project_uuid})
 
-        project_files = files_result["data"]["searchFile"]
+        project_files = files_result["searchFile"]
         eywa.info(f"Project files ({len(project_files)}):")
         for file in project_files:
             eywa.info(f"  - {file['name']} ({file['size']} bytes)")
@@ -729,9 +798,9 @@ async def process_data():
                 }
             }
         """)
-        
-        users = result["data"]["searchUser"]
-        
+
+        users = result["searchUser"]
+
         # Create report
         sheet = eywa.Sheet("ActiveUsers")
         sheet.set_columns(["ID", "Name", "Email"])
