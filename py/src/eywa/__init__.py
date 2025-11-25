@@ -29,7 +29,6 @@ def handle_data(data):
     id_ = data.get("id")
     result = data.get("result")
     error = data.get("error")
-    print(f"RPC response: {data}")
     if method:
         handle_request(data)
     elif result and id_:
@@ -643,7 +642,7 @@ async def graphql(query, variables=None):
         }
     )
     # Return the data directly - errors already raise JSONRPCException
-    return response.get("data", {})
+    return response.get("result", {})
 
 
 # File operations are now available as a separate module:
