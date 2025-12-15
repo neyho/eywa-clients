@@ -66,11 +66,12 @@ async def main():
 
     # Upload a file (from eywa_files module)
     file_uuid = "550e8400-e29b-41d4-a716-446655440000"
-    await eywa_files.upload_content("Hello from EYWA!", {
+    file_info = await eywa_files.upload_content("Hello from EYWA!", {
         "name": "greeting.txt",
         "euuid": file_uuid,
         "content_type": "text/plain"
     })
+    eywa.info(f"Uploaded: {file_info['name']} ({file_info['euuid']})")
 
     # Update task status
     eywa.update_task(eywa.PROCESSING)
@@ -210,6 +211,90 @@ from eywa_files import (
 - **3-Step Upload Protocol** - Request URL → S3 Upload → Confirm
 - **Complete Folder Support** - Full hierarchy management
 
+### Best Practices
+
+#### File UUID Management
+
+**When uploading to a folder (folder or folder_path specified):**
+
+The service automatically checks if a file with the same name already exists in that folder:
+- If the file exists → Reuses the existing file's UUID (overwrites the file)
+- If the file doesn't exist → Creates a new file with auto-generated UUID
+
+```python
+# DON'T specify euuid when uploading to folders
+# Let the service manage UUIDs based on filename
+await upload("report.pdf", {
+    "name": "monthly-report.pdf",
+    "folder_path": "/reports/2024/"  # Service checks for existing file by name
+})
+
+# First upload: Creates new file with auto-generated UUID
+# Second upload: Finds existing "monthly-report.pdf" and overwrites it
+```
+
+**Only specify `euuid` for orphaned files:**
+
+Orphaned files are files linked to other EYWA records (e.g., user avatars, document attachments) that exist outside of folder hierarchies:
+
+```python
+# DO specify euuid for files linked to other entities
+user_avatar_uuid = user_record["avatar_file_id"]  # UUID from your data model
+
+await upload_content(avatar_bytes, {
+    "name": "avatar.jpg",
+    "euuid": user_avatar_uuid,  # Controlled UUID for entity reference
+    "content_type": "image/jpeg"
+    # No folder - orphaned file linked to user record
+})
+```
+
+**Why this matters:**
+
+- **Folders**: Files are identified by name within their folder (like a filesystem)
+- **Orphaned files**: Files are identified by UUID for database relationships
+- **Idempotent uploads**: Uploading the same filename to the same folder multiple times safely updates the file
+
+**Example - Folder-based workflow:**
+
+```python
+# Upload daily report - no UUID needed
+report_info = await upload("daily-data.csv", {
+    "name": "daily-data.csv",
+    "folder_path": "/reports/daily/"
+})
+# Returns: existing file UUID if file exists, new UUID if not
+
+# Later upload with same name - automatically overwrites
+updated_info = await upload("new-daily-data.csv", {
+    "name": "daily-data.csv",  # Same name
+    "folder_path": "/reports/daily/"  # Same folder
+})
+# Returns: same UUID, updated content
+```
+
+**Example - Entity-linked workflow:**
+
+```python
+# File linked to a specific invoice record
+invoice_id = "550e8400-e29b-41d4-a716-446655440000"
+invoice_file_uuid = f"{invoice_id}-attachment"
+
+file_info = await upload("invoice.pdf", {
+    "name": "invoice-12345.pdf",
+    "euuid": invoice_file_uuid  # Explicit UUID for database relationship
+})
+
+# Store reference in your invoice record
+await eywa.graphql("""
+    mutation UpdateInvoice($id: UUID!, $fileId: UUID!) {
+        syncInvoice(data: {euuid: $id, attachment_file: $fileId}) {
+            euuid
+        }
+    }
+""", {"id": invoice_id, "fileId": invoice_file_uuid})
+```
+
 ### Path-Based Operations (NEW in v0.4.0)
 
 #### Upload with folder_path
@@ -218,13 +303,14 @@ from eywa_files import (
 from eywa_files import upload, upload_content
 
 # Upload file with auto-created folder structure
-await upload("report.pdf", {
+file_info = await upload("report.pdf", {
     "name": "report.pdf",
     "folder_path": "/projects/2024/reports/"  # Creates folders if needed
 })
+print(f"Uploaded to: {file_info['folder']['path']}")
 
 # Upload content with folder_path
-await upload_content(
+file_info = await upload_content(
     json.dumps({"data": "value"}),
     {
         "name": "data.json",
@@ -232,6 +318,7 @@ await upload_content(
         "folder_path": "/exports/2024/"
     }
 )
+print(f"File UUID: {file_info['euuid']}, Status: {file_info['status']}")
 ```
 
 #### ensure_path - Create Folder Structure
@@ -280,22 +367,24 @@ from eywa_files import upload_content
 # Upload string content with client UUID
 file_uuid = str(uuid.uuid4())
 
-await upload_content("Hello EYWA!", {
+file_info = await upload_content("Hello EYWA!", {
     "name": "greeting.txt",
     "euuid": file_uuid,  # Client controls UUID
     "folder": {"euuid": folder_uuid},
     "content_type": "text/plain"
 })
+print(f"Uploaded: {file_info['name']}, Status: {file_info['status']}")
 
 # Upload JSON data
 import json
 data = {"message": "Hello", "timestamp": "2024-01-01"}
 
-await upload_content(json.dumps(data), {
+file_info = await upload_content(json.dumps(data), {
     "name": "data.json",
     "euuid": str(uuid.uuid4()),
     "content_type": "application/json"
 })
+print(f"File UUID: {file_info['euuid']}, Size: {file_info['size']} bytes")
 ```
 
 #### Upload File from Disk
@@ -308,12 +397,13 @@ def progress_callback(current, total):
     percentage = (current / total) * 100
     eywa.info(f"Upload: {percentage:.1f}% ({current}/{total} bytes)")
 
-await upload("local_file.pdf", {
+file_info = await upload("local_file.pdf", {
     "name": "document.pdf",
     "euuid": str(uuid.uuid4()),
     "folder": {"euuid": reports_folder_uuid},
     "progress_fn": progress_callback
 })
+eywa.info(f"Upload complete: {file_info['euuid']} in {file_info['folder']['path']}")
 ```
 
 #### Upload from Stream
@@ -326,11 +416,12 @@ async def data_generator():
     for i in range(1000):
         yield f"Line {i}\n".encode()
 
-await upload_stream(data_generator(), {
+file_info = await upload_stream(data_generator(), {
     "name": "generated.txt",
     "size": 8000,  # Must calculate size beforehand
     "euuid": str(uuid.uuid4())
 })
+print(f"Stream uploaded: {file_info['name']} ({file_info['euuid']})")
 ```
 
 ### Download Operations
@@ -557,22 +648,24 @@ async def file_operations_example():
 
         # Upload files
         readme_uuid = str(uuid.uuid4())
-        await upload_content("# My Project\nThis is a demo", {
+        readme_info = await upload_content("# My Project\nThis is a demo", {
             "name": "README.md",
             "euuid": readme_uuid,
             "folder": {"euuid": project_uuid},
             "content_type": "text/markdown"
         })
+        eywa.info(f"Uploaded README: {readme_info['euuid']}")
 
         # Upload JSON config
         config_data = {"version": "1.0", "debug": True}
         config_uuid = str(uuid.uuid4())
-        await upload_content(json.dumps(config_data), {
+        config_info = await upload_content(json.dumps(config_data), {
             "name": "config.json",
             "euuid": config_uuid,
             "folder": {"euuid": project_uuid},
             "content_type": "application/json"
         })
+        eywa.info(f"Uploaded config: {config_info['euuid']} ({config_info['size']} bytes)")
 
         eywa.info("Files uploaded successfully")
 

@@ -283,7 +283,7 @@ async def _resolve_folder(file_data: Dict[str, Any]) -> Dict[str, Any]:
     return result
 
 
-async def upload(filepath: Union[str, Path], file_data: Dict[str, Any]) -> None:
+async def upload(filepath: Union[str, Path], file_data: Dict[str, Any]) -> Dict[str, Any]:
     """
     Upload a file to EYWA using the 3-step protocol.
 
@@ -299,26 +299,28 @@ async def upload(filepath: Union[str, Path], file_data: Dict[str, Any]) -> None:
             progress_fn: callable (optional, not sent to GraphQL)
 
     Returns:
-        None on success
+        Dict with uploaded file metadata (euuid, name, status, folder, etc.)
 
     Raises:
         FileUploadError: If upload fails at any stage
 
     Examples:
         # Simple upload to root
-        await upload("test.txt", {"name": "test.txt"})
+        file = await upload("test.txt", {"name": "test.txt"})
+        print(f"Uploaded file with UUID: {file['euuid']}")
 
         # Upload to folder by UUID
-        await upload("test.txt", {
+        file = await upload("test.txt", {
             "name": "test.txt",
             "folder": {"euuid": folder_uuid}
         })
 
         # Upload with folder_path (auto-creates folders)
-        await upload("report.pdf", {
+        file = await upload("report.pdf", {
             "name": "report.pdf",
             "folder_path": "/projects/2024/reports/"
         })
+        print(f"File in folder: {file['folder']['path']}")
     """
     try:
         # Resolve folder_path to folder reference if provided
@@ -346,7 +348,21 @@ async def upload(filepath: Union[str, Path], file_data: Dict[str, Any]) -> None:
         # Step 1: Request upload URL
         upload_query = """
         mutation RequestUpload($file: FileInput!) {
-            requestUploadURL(file: $file)
+            requestUploadURL(file: $file) {
+                file {
+                    euuid
+                    name
+                    status
+                    content_type
+                    size
+                    folder {
+                        euuid
+                        name
+                        path
+                    }
+                }
+                url
+            }
         }
         """
 
@@ -362,7 +378,12 @@ async def upload(filepath: Union[str, Path], file_data: Dict[str, Any]) -> None:
         file_input.pop("progress_fn", None)
 
         result = await _graphql(upload_query, {"file": file_input})
-        upload_url = result.get("requestUploadURL")
+        upload_response = result.get("requestUploadURL")
+        if not upload_response:
+            raise FileUploadError("No upload response returned")
+
+        upload_url = upload_response.get("url")
+        file_metadata = upload_response.get("file")
         if not upload_url:
             raise FileUploadError("No upload URL in response")
 
@@ -393,7 +414,7 @@ async def upload(filepath: Union[str, Path], file_data: Dict[str, Any]) -> None:
         if not confirmed:
             raise FileUploadError("Upload confirmation returned false")
 
-        return None
+        return file_metadata
 
     except FileUploadError:
         raise
@@ -403,7 +424,7 @@ async def upload(filepath: Union[str, Path], file_data: Dict[str, Any]) -> None:
 
 async def upload_stream(
     input_stream: AsyncIterator[bytes], file_data: Dict[str, Any]
-) -> None:
+) -> Dict[str, Any]:
     """
     Upload data from an async stream using the 3-step protocol.
 
@@ -418,7 +439,7 @@ async def upload_stream(
             progress_fn: callable (optional)
 
     Returns:
-        None on success
+        Dict with uploaded file metadata (euuid, name, status, folder, etc.)
 
     Raises:
         FileUploadError: If upload fails at any stage
@@ -441,7 +462,21 @@ async def upload_stream(
         # Step 1: Request upload URL
         upload_query = """
         mutation RequestUpload($file: FileInput!) {
-            requestUploadURL(file: $file)
+            requestUploadURL(file: $file) {
+                file {
+                    euuid
+                    name
+                    status
+                    content_type
+                    size
+                    folder {
+                        euuid
+                        name
+                        path
+                    }
+                }
+                url
+            }
         }
         """
 
@@ -450,7 +485,12 @@ async def upload_stream(
         file_input.pop("progress_fn", None)
 
         result = await _graphql(upload_query, {"file": file_input})
-        upload_url = result.get("requestUploadURL")
+        upload_response = result.get("requestUploadURL")
+        if not upload_response:
+            raise FileUploadError("No upload response returned")
+
+        upload_url = upload_response.get("url")
+        file_metadata = upload_response.get("file")
         if not upload_url:
             raise FileUploadError("No upload URL in response")
 
@@ -477,7 +517,7 @@ async def upload_stream(
         if not confirmed:
             raise FileUploadError("Upload confirmation returned false")
 
-        return None
+        return file_metadata
 
     except FileUploadError:
         raise
@@ -485,7 +525,7 @@ async def upload_stream(
         raise FileUploadError(f"Stream upload failed: {str(e)}") from e
 
 
-async def upload_content(content: Union[str, bytes], file_data: Dict[str, Any]) -> None:
+async def upload_content(content: Union[str, bytes], file_data: Dict[str, Any]) -> Dict[str, Any]:
     """
     Upload content directly from memory using the 3-step protocol.
 
@@ -501,14 +541,14 @@ async def upload_content(content: Union[str, bytes], file_data: Dict[str, Any]) 
             progress_fn: callable (optional)
 
     Returns:
-        None on success
+        Dict with uploaded file metadata (euuid, name, status, folder, etc.)
 
     Raises:
         FileUploadError: If upload fails at any stage
 
     Examples:
         # Upload JSON content with folder_path
-        await upload_content(
+        file = await upload_content(
             json.dumps({"key": "value"}),
             {
                 "name": "data.json",
@@ -516,6 +556,7 @@ async def upload_content(content: Union[str, bytes], file_data: Dict[str, Any]) 
                 "folder_path": "/exports/2024/"
             }
         )
+        print(f"Uploaded {file['name']} with UUID: {file['euuid']}")
     """
     try:
         # Resolve folder_path to folder reference if provided
@@ -544,7 +585,21 @@ async def upload_content(content: Union[str, bytes], file_data: Dict[str, Any]) 
         # Step 1: Request upload URL
         upload_query = """
         mutation RequestUpload($file: FileInput!) {
-            requestUploadURL(file: $file)
+            requestUploadURL(file: $file) {
+                file {
+                    euuid
+                    name
+                    status
+                    content_type
+                    size
+                    folder {
+                        euuid
+                        name
+                        path
+                    }
+                }
+                url
+            }
         }
         """
 
@@ -558,7 +613,12 @@ async def upload_content(content: Union[str, bytes], file_data: Dict[str, Any]) 
         file_input.pop("progress_fn", None)
 
         result = await _graphql(upload_query, {"file": file_input})
-        upload_url = result.get("requestUploadURL")
+        upload_response = result.get("requestUploadURL")
+        if not upload_response:
+            raise FileUploadError("No upload response returned")
+
+        upload_url = upload_response.get("url")
+        file_metadata = upload_response.get("file")
         if not upload_url:
             raise FileUploadError("No upload URL in response")
 
@@ -585,7 +645,7 @@ async def upload_content(content: Union[str, bytes], file_data: Dict[str, Any]) 
         if not confirmed:
             raise FileUploadError("Upload confirmation returned false")
 
-        return None
+        return file_metadata
 
     except FileUploadError:
         raise

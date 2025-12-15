@@ -8,7 +8,11 @@ Demonstrates the simplified approach with idempotent operations:
 - Direct GraphQL for queries/verification
 - Pre-defined UUIDs for repeatable operations
 
-Usage: eywa run -c "python examples/simple_files_demo.py"
+Usage:
+    eywa run -c "python examples/simple_files_demo.py"         # Full demo + cleanup
+    eywa run -c "python examples/simple_files_demo.py create"  # Create test resources only
+    eywa run -c "python examples/simple_files_demo.py list"    # List test resources
+    eywa run -c "python examples/simple_files_demo.py cleanup" # Clean up test resources
 
 Note: Can be run multiple times safely - uses constant UUIDs.
 """
@@ -46,27 +50,120 @@ class SimplifiedFilesDemo:
     def __init__(self):
         self.test_resources = []
 
+    async def list_resources(self):
+        """List all test resources to see what exists"""
+        eywa.info("📋 Listing test resources...")
+
+        resources_found = []
+
+        # Check for demo folder
+        try:
+            folder_result = await eywa.graphql(
+                """
+                query GetFolder($uuid: UUID!) {
+                    getFolder(euuid: $uuid) {
+                        euuid
+                        name
+                        path
+                        modified_on
+                    }
+                }
+                """,
+                {"uuid": DEMO_FOLDER_UUID}
+            )
+            if folder_result.get("getFolder"):
+                folder = folder_result["getFolder"]
+                resources_found.append(("folder", folder))
+                eywa.info(f"  📁 Folder: {folder['name']} (UUID: {folder['euuid']}, Path: {folder['path']})")
+        except Exception as e:
+            eywa.debug(f"Demo folder not found: {e}")
+
+        # Check for sample file
+        try:
+            file_result = await eywa.graphql(
+                """
+                query GetFile($uuid: UUID!) {
+                    getFile(euuid: $uuid) {
+                        euuid
+                        name
+                        size
+                        content_type
+                        status
+                        folder {
+                            name
+                            path
+                        }
+                    }
+                }
+                """,
+                {"uuid": SAMPLE_FILE_UUID}
+            )
+            if file_result.get("getFile"):
+                file = file_result["getFile"]
+                resources_found.append(("file", file))
+                folder_path = file.get('folder', {}).get('path', 'root')
+                eywa.info(f"  📄 File: {file['name']} (UUID: {file['euuid']}, Size: {file['size']} bytes, Folder: {folder_path})")
+        except Exception as e:
+            eywa.debug(f"Sample file not found: {e}")
+
+        # Check for JSON file
+        try:
+            json_result = await eywa.graphql(
+                """
+                query GetFile($uuid: UUID!) {
+                    getFile(euuid: $uuid) {
+                        euuid
+                        name
+                        size
+                        content_type
+                        status
+                        folder {
+                            name
+                            path
+                        }
+                    }
+                }
+                """,
+                {"uuid": JSON_FILE_UUID}
+            )
+            if json_result.get("getFile"):
+                file = json_result["getFile"]
+                resources_found.append(("file", file))
+                folder_path = file.get('folder', {}).get('path', 'root')
+                eywa.info(f"  📄 File: {file['name']} (UUID: {file['euuid']}, Size: {file['size']} bytes, Folder: {folder_path})")
+        except Exception as e:
+            eywa.debug(f"JSON file not found: {e}")
+
+        if not resources_found:
+            eywa.info("  No test resources found.")
+        else:
+            eywa.info(f"✅ Found {len(resources_found)} test resources")
+
+        return resources_found
+
     async def cleanup(self):
         """Clean up test resources"""
         eywa.info("🧹 Cleaning up test resources...")
 
-        # Delete files first
-        for resource in self.test_resources:
-            if resource["type"] == "file":
-                try:
-                    await delete_file(resource["uuid"])
-                    eywa.debug(f"Deleted file: {resource['uuid']}")
-                except Exception as e:
-                    eywa.warn(f"Failed to delete file {resource['uuid']}: {e}")
+        # Delete files first (using predefined UUIDs)
+        file_uuids = [SAMPLE_FILE_UUID, JSON_FILE_UUID]
+        for file_uuid in file_uuids:
+            try:
+                deleted = await delete_file(file_uuid)
+                if deleted:
+                    eywa.info(f"  ✅ Deleted file: {file_uuid}")
+            except Exception as e:
+                eywa.debug(f"File {file_uuid} not found or already deleted: {e}")
 
-        # Then delete folders
-        for resource in self.test_resources:
-            if resource["type"] == "folder":
-                try:
-                    await delete_folder(resource["uuid"])
-                    eywa.debug(f"Deleted folder: {resource['uuid']}")
-                except Exception as e:
-                    eywa.warn(f"Failed to delete folder {resource['uuid']}: {e}")
+        # Then delete folder
+        try:
+            deleted = await delete_folder(DEMO_FOLDER_UUID)
+            if deleted:
+                eywa.info(f"  ✅ Deleted folder: {DEMO_FOLDER_UUID}")
+        except Exception as e:
+            eywa.debug(f"Folder {DEMO_FOLDER_UUID} not found or already deleted: {e}")
+
+        eywa.info("✅ Cleanup complete")
 
     def track_resource(self, resource_type: str, resource_uuid: str, name: str):
         """Track resource for cleanup"""
@@ -142,45 +239,21 @@ class SimplifiedFilesDemo:
             folder_ref = {"euuid": folder_uuid} if folder_uuid else {"euuid": ROOT_UUID}
 
             eywa.info("Uploading file with protocol abstraction...")
-            await upload(
+            file_info = await upload(
                 temp_file.name,
                 {"euuid": file_uuid, "name": "demo-file.txt", "folder": folder_ref},
             )
 
-            eywa.info(f"✅ File uploaded successfully with UUID: {file_uuid}")
+            eywa.info(f"✅ File uploaded successfully!")
+            eywa.info(f"   UUID: {file_info['euuid']}")
+            eywa.info(f"   Name: {file_info['name']}")
+            eywa.info(f"   Status: {file_info['status']}")
+            eywa.info(f"   Size: {file_info['size']} bytes")
+            eywa.info(f"   Content-Type: {file_info['content_type']}")
+            if file_info.get('folder'):
+                eywa.info(f"   Folder: {file_info['folder']['path']}")
 
-            # Verify with GraphQL
-            eywa.info("Verifying upload with GraphQL...")
-            verification = await eywa.graphql(
-                """
-                query GetFile($uuid: UUID!) {
-                    getFile(euuid: $uuid) {
-                        euuid
-                        name
-                        status
-                        size
-                        content_type
-                        uploaded_at
-                        folder {
-                            euuid
-                            name
-                            path
-                        }
-                    }
-                }
-            """,
-                {"uuid": file_uuid},
-            )
-
-            file_info = verification.get("getFile")
-            if file_info:
-                eywa.info(
-                    f"✅ GraphQL verification: File {file_info['name']} ({file_info['size']} bytes) in {file_info['folder']['path'] if file_info['folder'] else 'root'}"
-                )
-                return file_uuid
-            else:
-                eywa.error("❌ GraphQL verification failed: File not found")
-                return None
+            return file_info['euuid']
 
         finally:
             # Clean up temp file
@@ -208,7 +281,7 @@ class SimplifiedFilesDemo:
         folder_ref = {"euuid": folder_uuid} if folder_uuid else {"euuid": ROOT_UUID}
 
         eywa.info("Uploading JSON content...")
-        await upload_content(
+        file_info = await upload_content(
             content,
             {
                 "euuid": file_uuid,
@@ -218,8 +291,12 @@ class SimplifiedFilesDemo:
             },
         )
 
-        eywa.info(f"✅ JSON content uploaded with UUID: {file_uuid}")
-        return file_uuid
+        eywa.info(f"✅ JSON content uploaded successfully!")
+        eywa.info(f"   UUID: {file_info['euuid']}")
+        eywa.info(f"   Name: {file_info['name']}")
+        eywa.info(f"   Status: {file_info['status']}")
+        eywa.info(f"   Size: {file_info['size']} bytes")
+        return file_info['euuid']
 
     async def demo_file_download(self, file_uuid: str):
         """Demo file download and verification"""
@@ -335,6 +412,29 @@ class SimplifiedFilesDemo:
         except FileUploadError as e:
             eywa.info(f"✅ Correctly caught FileUploadError: {e}")
 
+    async def create_resources(self):
+        """Create test resources without cleanup"""
+        eywa.info("🚀 Creating test resources...")
+
+        try:
+            # 1. Create folder
+            folder_uuid = await self.demo_folder_operations()
+
+            # 2. Upload files
+            text_file_uuid = await self.demo_file_upload(folder_uuid)
+            json_file_uuid = await self.demo_content_upload(folder_uuid)
+
+            eywa.info("✅ Test resources created successfully!")
+            eywa.info(f"   Folder UUID: {folder_uuid}")
+            eywa.info(f"   Text file UUID: {text_file_uuid}")
+            eywa.info(f"   JSON file UUID: {json_file_uuid}")
+
+        except Exception as e:
+            eywa.error(f"💥 Resource creation failed: {e}")
+            import traceback
+            eywa.debug(traceback.format_exc())
+            raise
+
     async def run_demo(self):
         """Run the complete simplified files demo"""
         eywa.info("🚀 EYWA Files - Simplified API Demo")
@@ -374,13 +474,38 @@ class SimplifiedFilesDemo:
 async def main():
     eywa.open_pipe()
 
+    # Parse command line arguments
+    command = sys.argv[1] if len(sys.argv) > 1 else None
+
     try:
         demo = SimplifiedFilesDemo()
-        await demo.run_demo()
+
+        if command == "create":
+            # Create test resources without cleanup
+            await demo.create_resources()
+        elif command == "list":
+            # List existing test resources
+            await demo.list_resources()
+        elif command == "cleanup":
+            # Clean up test resources
+            await demo.cleanup()
+        elif command is None:
+            # Run full demo with cleanup
+            await demo.run_demo()
+        else:
+            eywa.error(f"Unknown command: {command}")
+            eywa.info("Usage:")
+            eywa.info("  python examples/simple_files_demo.py         # Full demo + cleanup")
+            eywa.info("  python examples/simple_files_demo.py create  # Create test resources")
+            eywa.info("  python examples/simple_files_demo.py list    # List test resources")
+            eywa.info("  python examples/simple_files_demo.py cleanup # Clean up test resources")
+            eywa.close_task(eywa.ERROR)
+            return
+
         eywa.close_task(eywa.SUCCESS)
 
     except Exception as e:
-        eywa.error(f"💥 Demo execution failed: {e}")
+        eywa.error(f"💥 Execution failed: {e}")
         eywa.close_task(eywa.ERROR)
 
 
