@@ -10,10 +10,15 @@
 // Core Types
 // ============================================================================
 
-export interface GraphQLResponse<T = any> {
-  data?: T;
-  error?: any;
-}
+/**
+ * EYWA's data endpoint (`eywa.datasets.graphql`) does NOT wrap responses in
+ * a `{ data, errors }` envelope at this transport layer. On success,
+ * `graphql()` resolves with the GraphQL `data` field directly. On failure it
+ * throws an `EywaGraphQLError`.
+ *
+ * Kept here only as a documentation alias.
+ */
+export type GraphQLData<T = any> = T;
 
 export interface TaskInfo {
   id: string;
@@ -212,20 +217,68 @@ export interface TaskReport {
 // Exception Types
 // ============================================================================
 
-export class FileUploadError extends Error {
-  name: 'FileUploadError';
-  type: string;
-  code?: number;
-  
-  constructor(message: string, options?: { type?: string; code?: number });
+export interface EywaErrorOptions {
+  /** JSON-RPC error code from the server (or HTTP status for transport errors). */
+  code?: number | string;
+  /** Structured error payload from the server (path, extensions, ...). */
+  data?: any;
+  /** Underlying error that triggered this one — useful for diagnostics. */
+  cause?: unknown;
 }
 
-export class FileDownloadError extends Error {
+/** Base class for every error thrown by this client. */
+export class EywaError extends Error {
+  name: string;
+  code?: number | string;
+  data?: any;
+  cause?: unknown;
+
+  constructor(message: string, options?: EywaErrorOptions);
+}
+
+/** Thrown when a JSON-RPC call to the server fails (any method). */
+export class EywaRPCError extends EywaError {
+  name: 'EywaRPCError';
+  /** The JSON-RPC method that failed (e.g. 'eywa.datasets.graphql'). */
+  method?: string;
+
+  constructor(message: string, options?: EywaErrorOptions & { method?: string });
+}
+
+/**
+ * Thrown by `graphql()` when the server returns a GraphQL error.
+ *
+ * `.code` is the JSON-RPC error code (-32602 for GraphQL errors, -32603 for
+ * server-internal). `.data` contains the remaining fields of the originating
+ * GraphQL error (path, extensions, locations, ...). `.query` and `.variables`
+ * carry the failing request for diagnostics.
+ */
+export class EywaGraphQLError extends EywaRPCError {
+  name: 'EywaGraphQLError';
+  query?: string;
+  variables?: any;
+
+  constructor(message: string, options?: EywaErrorOptions & {
+    method?: string;
+    query?: string;
+    variables?: any;
+  });
+}
+
+export class FileUploadError extends EywaError {
+  name: 'FileUploadError';
+  type: string;
+  code?: number | string;
+
+  constructor(message: string, options?: EywaErrorOptions & { type?: string });
+}
+
+export class FileDownloadError extends EywaError {
   name: 'FileDownloadError';
   type: string;
-  code?: number;
-  
-  constructor(message: string, options?: { type?: string; code?: number });
+  code?: number | string;
+
+  constructor(message: string, options?: EywaErrorOptions & { type?: string });
 }
 
 // ============================================================================
@@ -251,10 +304,30 @@ export function warn(message: string, data?: any): void;
 export function exception(message: string, data?: any): void;
 export function report(message: string, options?: ReportOptions): Promise<TaskReport | null>;
 
-// Legacy overload for backward compatibility
-export function report(message: string, data: any, image: any): Promise<TaskReport | null>;
+/**
+ * Execute a GraphQL operation against EYWA's data endpoint.
+ *
+ * Resolves with the GraphQL `data` field directly (no `{data, errors}` envelope).
+ * Throws `EywaGraphQLError` on failure — inspect `.code`, `.data`, `.query`, and
+ * `.variables` for diagnostics.
+ */
+export function graphql<T = any>(query: string, variables?: any): Promise<T>;
 
-export function graphql<T = any>(query: string, variables?: any): Promise<GraphQLResponse<T>>;
+export interface AccessTokenInfo {
+  /** Short-lived JWT bound to this robot's currently-executing root task. */
+  token: string;
+  /** Lifetime in seconds. */
+  expires_in: number;
+  /** Token scheme — currently always "Bearer". */
+  token_type: string;
+}
+
+/**
+ * Request a short-lived access token bound to this robot's currently-executing
+ * root task. Pass `token` to a downstream app so it can authenticate back to
+ * EYWA on behalf of this robot.
+ */
+export function access_token(): Promise<AccessTokenInfo | null>;
 
 // ============================================================================
 // File Operations (GraphQL-Aligned)
@@ -402,7 +475,8 @@ declare const eywa: {
   exception: typeof exception;
   report: typeof report;
   graphql: typeof graphql;
-  
+  access_token: typeof access_token;
+
   // File operations
   upload: typeof upload;
   uploadStream: typeof uploadStream;
@@ -422,8 +496,14 @@ declare const eywa: {
   // Constants
   rootUuid: typeof rootUuid;
   rootFolder: typeof rootFolder;
+
+  // Errors
+  EywaError: typeof EywaError;
+  EywaRPCError: typeof EywaRPCError;
+  EywaGraphQLError: typeof EywaGraphQLError;
   FileUploadError: typeof FileUploadError;
   FileDownloadError: typeof FileDownloadError;
+
   SUCCESS: typeof SUCCESS;
   ERROR: typeof ERROR;
   PROCESSING: typeof PROCESSING;

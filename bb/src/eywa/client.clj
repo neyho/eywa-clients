@@ -165,6 +165,25 @@
                    error)))))))
 
 
+(defn access-token
+  "Request a short-lived access token bound to this robot's currently-
+  executing root task. expires-in sets the token TTL in seconds (default
+  3600). Returns a promise channel that delivers a map with :token,
+  :expires_in, and :token_type keys (or an ex-info on error).
+
+  Pass :token to a downstream app so it can authenticate back to EYWA on
+  behalf of this robot. The token is valid only while the robot's root
+  task is active."
+  ([] (access-token 3600))
+  ([expires-in]
+   (async/go
+     (let [result (async/<! (graphql "mutation($expires_in: Int) { requestAccessToken(expires_in: $expires_in) { token expires_in token_type } }"
+                                     {:expires_in expires-in}))]
+       (if (instance? Throwable result)
+         result
+         (:requestAccessToken result))))))
+
+
 ;; Main loop
 (defn start []
   (async/thread (read-stdin)))

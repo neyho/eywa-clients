@@ -44,7 +44,7 @@ async def main():
         test_path = "/test-upload-path/nested/deep/"
 
         content = json.dumps({"test": "data", "timestamp": "2024-01-01"}, indent=2)
-        await upload_content(
+        file_info = await upload_content(
             content,
             {
                 "name": "test-data.json",
@@ -53,25 +53,15 @@ async def main():
             }
         )
         eywa.info(f"  Uploaded test-data.json to {test_path}")
+        eywa.info(f"  File UUID: {file_info['euuid']}")
+        eywa.info(f"  File status: {file_info['status']}")
 
-        # Verify the file exists by querying
-        result = await eywa.graphql("""
-            query FindFile {
-                searchFile(_where: {name: {_eq: "test-data.json"}}, _limit: 1) {
-                    euuid
-                    name
-                    folder {
-                        path
-                    }
-                }
-            }
-        """)
-        files = result.get("searchFile", [])
-        if files and files[0]["folder"]["path"] == test_path:
-            eywa.info(f"  File found in correct folder: {files[0]['folder']['path']}")
-            uploaded_files.append(files[0]["euuid"])
+        # Verify the folder path matches
+        if file_info.get('folder') and file_info['folder']['path'] == test_path:
+            eywa.info(f"  File in correct folder: {file_info['folder']['path']}")
+            uploaded_files.append(file_info['euuid'])
         else:
-            eywa.error("  File not found or in wrong folder!")
+            eywa.error("  File not in expected folder!")
 
         # Test 2: upload file with folder_path
         eywa.info("Test 2: upload file with folder_path")
@@ -82,7 +72,7 @@ async def main():
         temp_file.close()
 
         try:
-            await upload(
+            file_info = await upload(
                 temp_file.name,
                 {
                     "name": "hello.txt",
@@ -90,25 +80,15 @@ async def main():
                 }
             )
             eywa.info("  Uploaded hello.txt to /test-upload-path/texts/")
+            eywa.info(f"  File UUID: {file_info['euuid']}")
+            eywa.info(f"  File status: {file_info['status']}")
 
-            # Verify
-            result = await eywa.graphql("""
-                query FindFile {
-                    searchFile(_where: {name: {_eq: "hello.txt"}}, _limit: 1) {
-                        euuid
-                        name
-                        folder {
-                            path
-                        }
-                    }
-                }
-            """)
-            files = result.get("searchFile", [])
-            if files and files[0]["folder"]["path"] == "/test-upload-path/texts/":
-                eywa.info(f"  File found in correct folder: {files[0]['folder']['path']}")
-                uploaded_files.append(files[0]["euuid"])
+            # Verify folder path matches
+            if file_info.get('folder') and file_info['folder']['path'] == "/test-upload-path/texts/":
+                eywa.info(f"  File in correct folder: {file_info['folder']['path']}")
+                uploaded_files.append(file_info['euuid'])
             else:
-                eywa.error("  File not found or in wrong folder!")
+                eywa.error("  File not in expected folder!")
 
         finally:
             os.unlink(temp_file.name)

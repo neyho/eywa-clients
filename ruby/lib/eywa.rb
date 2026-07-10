@@ -172,6 +172,22 @@ module Eywa
       )
     end
 
+    # Request a short-lived access token bound to this robot's currently-
+    # executing root task. expires_in sets the token TTL in seconds
+    # (default 3600). Returns a Thread whose value is a Hash with
+    # 'token', 'expires_in', and 'token_type' keys (or nil on error). Pass
+    # 'token' to a downstream app so it can authenticate back to EYWA on
+    # behalf of this robot.
+    def access_token(expires_in = 3600)
+      Thread.new do
+        response = graphql(
+          'mutation($expires_in: Int) { requestAccessToken(expires_in: $expires_in) { token expires_in token_type } }',
+          { 'expires_in' => expires_in }
+        ).value
+        response.is_a?(Hash) ? response['requestAccessToken'] : nil
+      end
+    end
+
     private
 
     def handle_data(data)

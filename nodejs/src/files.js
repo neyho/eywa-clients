@@ -1,33 +1,40 @@
 /**
  * EYWA File Operations for Node.js
- * 
+ *
  * GraphQL-aligned file operations following the Babashka client pattern.
  * All functions use single map arguments that directly mirror GraphQL schema.
  * Client controls UUID management for both creation and updates.
  */
 
-import { createHash } from 'crypto'
 import { Readable } from 'stream'
 import fetch from 'node-fetch'
 import { lookup } from 'mime-types'
-import { graphql, info as logInfo, debug, error } from './eywa.js'
+import { graphql, EywaError, EywaGraphQLError } from './eywa.js'
 
-// Exception types for file operations
-export class FileUploadError extends Error {
+// ============================================================================
+// Errors
+// ============================================================================
+//
+// File upload/download wrap any underlying transport or GraphQL failure so the
+// caller can `catch (e) { if (e instanceof FileUploadError) ... }` without
+// losing the original error. Inspect `.cause` for the underlying problem and
+// `.cause.code` / `.cause.data` for structured RPC details.
+
+export class FileUploadError extends EywaError {
   constructor(message, options = {}) {
-    super(message)
+    super(message, options)
     this.name = 'FileUploadError'
     this.type = options.type || 'upload-error'
-    if (options.code) this.code = options.code
+    if (options.code !== undefined) this.code = options.code
   }
 }
 
-export class FileDownloadError extends Error {
+export class FileDownloadError extends EywaError {
   constructor(message, options = {}) {
-    super(message)
+    super(message, options)
     this.name = 'FileDownloadError'
     this.type = options.type || 'download-error'
-    if (options.code) this.code = options.code
+    if (options.code !== undefined) this.code = options.code
   }
 }
 
@@ -35,14 +42,10 @@ export class FileDownloadError extends Error {
 export const rootUuid = '87ce50d8-5dfa-4008-a265-053e727ab793'
 export const rootFolder = { euuid: rootUuid }
 
-/**
- * Detect MIME type from filename
- */
 function mimeType(filename) {
   const detected = lookup(filename)
   if (detected) return detected
 
-  // Fallback detection for common types
   const ext = filename.split('.').pop()?.toLowerCase()
   switch (ext) {
     case 'txt': return 'text/plain'
@@ -63,9 +66,6 @@ function mimeType(filename) {
   }
 }
 
-/**
- * Perform HTTP PUT request to upload data
- */
 async function httpPut(url, data, contentType, progressFn) {
   try {
     const contentLength = Buffer.isBuffer(data) ? data.length : Buffer.byteLength(data, 'utf8')
@@ -94,14 +94,10 @@ async function httpPut(url, data, contentType, progressFn) {
   }
 }
 
-/**
- * Perform HTTP PUT request from a stream
- */
 async function httpPutStream(url, inputStream, contentLength, contentType, progressFn) {
   try {
     if (progressFn) progressFn(0, contentLength)
 
-    // Read entire stream into buffer to avoid chunked transfer encoding
     const chunks = []
     let bytesRead = 0
 
@@ -135,9 +131,6 @@ async function httpPutStream(url, inputStream, contentLength, contentType, progr
   }
 }
 
-/**
- * Perform HTTP GET request and return stream
- */
 async function httpGetStream(url) {
   try {
     const response = await fetch(url)
@@ -157,6 +150,21 @@ async function httpGetStream(url) {
   }
 }
 
+// Wrap any thrown error from a graphql() call into a FileUploadError /
+// FileDownloadError, preserving the original on `.cause`. `EywaGraphQLError`s
+// carry `.code` and `.data` from the server; re-export those for parity.
+function wrapGraphqlError(err, Wrap, prefix) {
+  if (err instanceof Wrap) return err
+  if (err instanceof EywaGraphQLError) {
+    return new Wrap(`${prefix}: ${err.message}`, {
+      code: err.code,
+      data: err.data,
+      cause: err
+    })
+  }
+  return new Wrap(`${prefix}: ${err.message || err}`, { cause: err })
+}
+
 // ============================================================================
 // Core File Operations (Following Babashka Pattern)
 // ============================================================================
@@ -165,299 +173,254 @@ async function httpGetStream(url) {
  * Upload a file to EYWA file service using streaming.
  */
 export async function upload(filepath, fileData) {
-  try {
-    const progressFn = fileData.progressFn
+  const progressFn = fileData.progressFn
 
-    // Handle different input types
-    let fileStats, fileName, fileSize
+  let fileStats, fileName, fileSize
 
-    if (typeof filepath === 'string') {
-      // File path
-      const fs = await import('fs/promises')
-      const path = await import('path')
+  if (typeof filepath === 'string') {
+    const fs = await import('fs/promises')
+    const path = await import('path')
 
-      try {
-        fileStats = await fs.stat(filepath)
-        if (!fileStats.isFile()) {
-          throw new FileUploadError(`Path is not a file: ${filepath}`)
-        }
-      } catch (err) {
-        throw new FileUploadError(`File not found: ${filepath}`)
+    try {
+      fileStats = await fs.stat(filepath)
+      if (!fileStats.isFile()) {
+        throw new FileUploadError(`Path is not a file: ${filepath}`)
       }
-
-      fileSize = fileStats.size
-      fileName = fileData.name || path.basename(filepath)
-    } else {
-      // Assume it's a File-like object with .name and .size
-      fileName = fileData.name || filepath.name
-      fileSize = fileData.size || filepath.size
-
-      if (!fileName) {
-        throw new FileUploadError('File name is required')
-      }
-      if (!fileSize) {
-        throw new FileUploadError('File size is required for File objects')
-      }
+    } catch (err) {
+      if (err instanceof FileUploadError) throw err
+      throw new FileUploadError(`File not found: ${filepath}`, { cause: err })
     }
 
-    const detectedContentType = fileData.content_type || mimeType(fileName)
+    fileSize = fileStats.size
+    fileName = fileData.name || path.basename(filepath)
+  } else {
+    fileName = fileData.name || filepath.name
+    fileSize = fileData.size || filepath.size
 
-    // Step 1: Request upload URL
-    const uploadQuery = `mutation RequestUpload($file: FileInput!) { 
+    if (!fileName) {
+      throw new FileUploadError('File name is required')
+    }
+    if (!fileSize) {
+      throw new FileUploadError('File size is required for File objects')
+    }
+  }
+
+  const detectedContentType = fileData.content_type || mimeType(fileName)
+
+  const uploadQuery = `mutation RequestUpload($file: FileInput!) {
             requestUploadURL(file: $file)
         }`
 
-    // Build file input - use fileData directly, just fill in computed values
-    const fileInput = {
-      ...fileData,
-      progressFn: undefined, // Remove non-GraphQL field
-      name: fileName,
-      content_type: detectedContentType,
-      size: fileSize
-    }
+  const fileInput = {
+    ...fileData,
+    progressFn: undefined,
+    name: fileName,
+    content_type: detectedContentType,
+    size: fileSize
+  }
 
+  let uploadUrl
+  try {
     const result = await graphql(uploadQuery, { file: fileInput })
+    uploadUrl = result?.requestUploadURL
+  } catch (err) {
+    throw wrapGraphqlError(err, FileUploadError, 'Failed to get upload URL')
+  }
 
-    if (result.error) {
-      throw new FileUploadError(`Failed to get upload URL: ${JSON.stringify(result.error)}`)
-    }
+  if (!uploadUrl) {
+    throw new FileUploadError('No upload URL in response')
+  }
 
-    const uploadUrl = result.data?.requestUploadURL
-    if (!uploadUrl) {
-      throw new FileUploadError('No upload URL in response')
-    }
+  let uploadResult
+  if (typeof filepath === 'string') {
+    const fs = await import('fs')
+    const fileStream = fs.createReadStream(filepath)
+    uploadResult = await httpPutStream(uploadUrl, fileStream, fileSize, detectedContentType, progressFn)
+  } else {
+    const stream = filepath.stream ? filepath.stream() : Readable.from(filepath)
+    uploadResult = await httpPutStream(uploadUrl, stream, fileSize, detectedContentType, progressFn)
+  }
 
-    // Step 2: Stream file to S3
-    let uploadResult
-    if (typeof filepath === 'string') {
-      // File path - use file stream
-      const fs = await import('fs')
-      const fileStream = fs.createReadStream(filepath)
-      uploadResult = await httpPutStream(uploadUrl, fileStream, fileSize, detectedContentType, progressFn)
-    } else {
-      // File object - read as stream
-      const stream = filepath.stream ? filepath.stream() : Readable.from(filepath)
-      uploadResult = await httpPutStream(uploadUrl, stream, fileSize, detectedContentType, progressFn)
-    }
+  if (uploadResult.status === 'error') {
+    throw new FileUploadError(
+      `S3 upload failed (${uploadResult.code}): ${uploadResult.message}`,
+      { code: uploadResult.code }
+    )
+  }
 
-    if (uploadResult.status === 'error') {
-      throw new FileUploadError(
-        `S3 upload failed (${uploadResult.code}): ${uploadResult.message}`,
-        { code: uploadResult.code }
-      )
-    }
-
-    // Step 3: Confirm upload
-    const confirmQuery = `mutation ConfirmUpload($url: String!) {
+  const confirmQuery = `mutation ConfirmUpload($url: String!) {
             confirmFileUpload(url: $url)
         }`
 
+  let confirmed
+  try {
     const confirmResult = await graphql(confirmQuery, { url: uploadUrl })
-
-    if (confirmResult.error) {
-      throw new FileUploadError(`Upload confirmation failed: ${JSON.stringify(confirmResult.error)}`)
-    }
-
-    const confirmed = confirmResult.data?.confirmFileUpload
-    if (!confirmed) {
-      throw new FileUploadError('Upload confirmation returned false')
-    }
-
-    return null
-
-  } catch (error) {
-    if (error instanceof FileUploadError) {
-      throw error
-    } else {
-      throw new FileUploadError(error.message)
-    }
+    confirmed = confirmResult?.confirmFileUpload
+  } catch (err) {
+    throw wrapGraphqlError(err, FileUploadError, 'Upload confirmation failed')
   }
+
+  if (!confirmed) {
+    throw new FileUploadError('Upload confirmation returned false')
+  }
+
+  return null
 }
 
 /**
  * Upload data from a stream to EYWA file service.
  */
 export async function uploadStream(inputStream, fileData) {
-  try {
-    const contentType = fileData.content_type || 'application/octet-stream'
-    const contentLength = fileData.size
-    const progressFn = fileData.progressFn
+  const contentType = fileData.content_type || 'application/octet-stream'
+  const contentLength = fileData.size
+  const progressFn = fileData.progressFn
 
-    if (!contentLength) {
-      throw new FileUploadError('size is required for stream uploads')
-    }
+  if (!contentLength) {
+    throw new FileUploadError('size is required for stream uploads')
+  }
 
-    // Step 1: Request upload URL
-    const uploadQuery = `mutation RequestUpload($file: FileInput!) {
+  const uploadQuery = `mutation RequestUpload($file: FileInput!) {
             requestUploadURL(file: $file)
         }`
 
-    // Build file input - use fileData directly, just fill in defaults
-    const fileInput = {
-      ...fileData,
-      progressFn: undefined, // Remove non-GraphQL field
-      content_type: contentType
-    }
+  const fileInput = {
+    ...fileData,
+    progressFn: undefined,
+    content_type: contentType
+  }
 
+  let uploadUrl
+  try {
     const result = await graphql(uploadQuery, { file: fileInput })
+    uploadUrl = result?.requestUploadURL
+  } catch (err) {
+    throw wrapGraphqlError(err, FileUploadError, 'Failed to get upload URL')
+  }
 
-    if (result.error) {
-      throw new FileUploadError(`Failed to get upload URL: ${JSON.stringify(result.error)}`)
-    }
+  if (!uploadUrl) {
+    throw new FileUploadError('No upload URL in response')
+  }
 
-    const uploadUrl = result.data?.requestUploadURL
-    if (!uploadUrl) {
-      throw new FileUploadError('No upload URL in response')
-    }
+  const uploadResult = await httpPutStream(uploadUrl, inputStream, contentLength, contentType, progressFn)
 
-    // Step 2: Stream to S3
-    const uploadResult = await httpPutStream(uploadUrl, inputStream, contentLength, contentType, progressFn)
+  if (uploadResult.status === 'error') {
+    throw new FileUploadError(
+      `S3 upload failed (${uploadResult.code}): ${uploadResult.message}`,
+      { code: uploadResult.code }
+    )
+  }
 
-    if (uploadResult.status === 'error') {
-      throw new FileUploadError(
-        `S3 upload failed (${uploadResult.code}): ${uploadResult.message}`,
-        { code: uploadResult.code }
-      )
-    }
-
-    // Step 3: Confirm upload
-    const confirmQuery = `mutation ConfirmUpload($url: String!) {
+  const confirmQuery = `mutation ConfirmUpload($url: String!) {
             confirmFileUpload(url: $url)
         }`
 
+  let confirmed
+  try {
     const confirmResult = await graphql(confirmQuery, { url: uploadUrl })
-
-    if (confirmResult.error) {
-      throw new FileUploadError(`Upload confirmation failed: ${JSON.stringify(confirmResult.error)}`)
-    }
-
-    const confirmed = confirmResult.data?.confirmFileUpload
-    if (!confirmed) {
-      throw new FileUploadError('Upload confirmation returned false')
-    }
-
-    return null
-
-  } catch (error) {
-    if (error instanceof FileUploadError) {
-      throw error
-    } else {
-      throw new FileUploadError(error.message)
-    }
+    confirmed = confirmResult?.confirmFileUpload
+  } catch (err) {
+    throw wrapGraphqlError(err, FileUploadError, 'Upload confirmation failed')
   }
+
+  if (!confirmed) {
+    throw new FileUploadError('Upload confirmation returned false')
+  }
+
+  return null
 }
 
 /**
  * Upload content directly from memory.
  */
 export async function uploadContent(content, fileData) {
-  try {
-    const contentBuffer = Buffer.isBuffer(content) ? content : Buffer.from(content, 'utf8')
-    const fileSize = contentBuffer.length
-    const contentType = fileData.content_type || 'text/plain'
-    const progressFn = fileData.progressFn
+  const contentBuffer = Buffer.isBuffer(content) ? content : Buffer.from(content, 'utf8')
+  const fileSize = contentBuffer.length
+  const contentType = fileData.content_type || 'text/plain'
+  const progressFn = fileData.progressFn
 
-    // Step 1: Request upload URL
-    const uploadQuery = `mutation RequestUpload($file: FileInput!) {
+  const uploadQuery = `mutation RequestUpload($file: FileInput!) {
             requestUploadURL(file: $file)
         }`
 
-    // Build file input - use fileData directly, just fill in computed values
-    const fileInput = {
-      ...fileData,
-      progressFn: undefined, // Remove non-GraphQL field
-      content_type: contentType,
-      size: fileSize
-    }
+  const fileInput = {
+    ...fileData,
+    progressFn: undefined,
+    content_type: contentType,
+    size: fileSize
+  }
 
+  let uploadUrl
+  try {
     const result = await graphql(uploadQuery, { file: fileInput })
+    uploadUrl = result?.requestUploadURL
+  } catch (err) {
+    throw wrapGraphqlError(err, FileUploadError, 'Failed to get upload URL')
+  }
 
-    if (result.error) {
-      throw new FileUploadError(`Failed to get upload URL: ${JSON.stringify(result.error)}`)
-    }
+  if (!uploadUrl) {
+    throw new FileUploadError('No upload URL in response')
+  }
 
-    const uploadUrl = result.data?.requestUploadURL
-    if (!uploadUrl) {
-      throw new FileUploadError('No upload URL in response')
-    }
+  const uploadResult = await httpPut(uploadUrl, contentBuffer, contentType, progressFn)
 
-    // Step 2: Upload content to S3
-    const uploadResult = await httpPut(uploadUrl, contentBuffer, contentType, progressFn)
+  if (uploadResult.status === 'error') {
+    throw new FileUploadError(
+      `S3 upload failed (${uploadResult.code}): ${uploadResult.message}`,
+      { code: uploadResult.code }
+    )
+  }
 
-    if (uploadResult.status === 'error') {
-      throw new FileUploadError(
-        `S3 upload failed (${uploadResult.code}): ${uploadResult.message}`,
-        { code: uploadResult.code }
-      )
-    }
-
-    // Step 3: Confirm upload
-    const confirmQuery = `mutation ConfirmUpload($url: String!) {
+  const confirmQuery = `mutation ConfirmUpload($url: String!) {
             confirmFileUpload(url: $url)
         }`
 
+  let confirmed
+  try {
     const confirmResult = await graphql(confirmQuery, { url: uploadUrl })
-
-    if (confirmResult.error) {
-      throw new FileUploadError(`Upload confirmation failed: ${JSON.stringify(confirmResult.error)}`)
-    }
-
-    const confirmed = confirmResult.data?.confirmFileUpload
-    if (!confirmed) {
-      throw new FileUploadError('Upload confirmation returned false')
-    }
-
-    return null
-
-  } catch (error) {
-    if (error instanceof FileUploadError) {
-      throw error
-    } else {
-      throw new FileUploadError(error.message)
-    }
+    confirmed = confirmResult?.confirmFileUpload
+  } catch (err) {
+    throw wrapGraphqlError(err, FileUploadError, 'Upload confirmation failed')
   }
+
+  if (!confirmed) {
+    throw new FileUploadError('Upload confirmation returned false')
+  }
+
+  return null
 }
 
 /**
  * Download a file from EYWA and return a stream.
  */
 export async function downloadStream(fileUuid) {
-  try {
-    const query = `query RequestDownload($file: FileInput!) {
+  const query = `query RequestDownload($file: FileInput!) {
             requestDownloadURL(file: $file)
         }`
 
+  let downloadUrl
+  try {
     const result = await graphql(query, { file: { euuid: fileUuid } })
+    downloadUrl = result?.requestDownloadURL
+  } catch (err) {
+    throw wrapGraphqlError(err, FileDownloadError, 'Failed to get download URL')
+  }
 
-    if (result.error) {
-      throw new FileDownloadError(`Failed to get download URL: ${JSON.stringify(result.error)}`)
-    }
+  if (!downloadUrl) {
+    throw new FileDownloadError('No download URL in response')
+  }
 
-    const downloadUrl = result.data?.requestDownloadURL
-    if (!downloadUrl) {
-      throw new FileDownloadError('No download URL in response')
-    }
+  const downloadResult = await httpGetStream(downloadUrl)
 
-    const downloadResult = await httpGetStream(downloadUrl)
+  if (downloadResult.status === 'error') {
+    throw new FileDownloadError(
+      `Download failed (${downloadResult.code}): ${downloadResult.message}`,
+      { code: downloadResult.code }
+    )
+  }
 
-    if (downloadResult.status === 'error') {
-      throw new FileDownloadError(
-        `Download failed (${downloadResult.code}): ${downloadResult.message}`,
-        { code: downloadResult.code }
-      )
-    }
-
-    return {
-      stream: downloadResult.stream,
-      contentLength: downloadResult.contentLength
-    }
-
-  } catch (error) {
-    if (error instanceof FileDownloadError) {
-      throw error
-    } else {
-      throw new FileDownloadError(error.message)
-    }
+  return {
+    stream: downloadResult.stream,
+    contentLength: downloadResult.contentLength
   }
 }
 
@@ -465,23 +428,14 @@ export async function downloadStream(fileUuid) {
  * Download a file from EYWA and return the content as a Buffer.
  */
 export async function download(fileUuid) {
-  try {
-    const result = await downloadStream(fileUuid)
+  const result = await downloadStream(fileUuid)
 
-    const chunks = []
-    for await (const chunk of result.stream) {
-      chunks.push(chunk)
-    }
-
-    return Buffer.concat(chunks)
-
-  } catch (error) {
-    if (error instanceof FileDownloadError) {
-      throw error
-    } else {
-      throw new FileDownloadError(error.message)
-    }
+  const chunks = []
+  for await (const chunk of result.stream) {
+    chunks.push(chunk)
   }
+
+  return Buffer.concat(chunks)
 }
 
 // ============================================================================
@@ -492,8 +446,7 @@ export async function download(fileUuid) {
  * Get information about a specific file.
  */
 export async function fileInfo(fileUuid) {
-  try {
-    const query = `query GetFile($uuid: UUID!) {
+  const query = `query GetFile($uuid: UUID!) {
             getFile(euuid: $uuid) {
                 euuid
                 name
@@ -512,36 +465,25 @@ export async function fileInfo(fileUuid) {
             }
         }`
 
-    const result = await graphql(query, { uuid: fileUuid })
-
-    if (result.error) {
-      throw new Error(`Failed to get file info: ${JSON.stringify(result.error)}`)
-    }
-
-    return result.data?.getFile || null
-
-  } catch (error) {
-    throw error
-  }
+  const result = await graphql(query, { uuid: fileUuid })
+  return result?.getFile ?? null
 }
 
 /**
  * List files in EYWA file service.
  */
 export async function list(filters = {}) {
-  try {
-    // Handle folder filtering using relationship filtering
-    const folderFilter = filters.folder
-    let folderWhere = ''
-    if (folderFilter) {
-      if (folderFilter.euuid) {
-        folderWhere = `(_where: {euuid: {_eq: "${folderFilter.euuid}"}})`
-      } else if (folderFilter.path) {
-        folderWhere = `(_where: {path: {_eq: "${folderFilter.path}"}})`
-      }
+  const folderFilter = filters.folder
+  let folderWhere = ''
+  if (folderFilter) {
+    if (folderFilter.euuid) {
+      folderWhere = `(_where: {euuid: {_eq: "${folderFilter.euuid}"}})`
+    } else if (folderFilter.path) {
+      folderWhere = `(_where: {path: {_eq: "${folderFilter.path}"}})`
     }
+  }
 
-    const query = `query ListFiles($limit: Int, $where: searchFileOperator) {
+  const query = `query ListFiles($limit: Int, $where: searchFileOperator) {
             searchFile(_limit: $limit, _where: $where, _order_by: {uploaded_at: desc}) {
                 euuid
                 name
@@ -560,76 +502,57 @@ export async function list(filters = {}) {
             }
         }`
 
-    const whereConditions = []
+  const whereConditions = []
 
-    if (filters.status) {
-      whereConditions.push({ status: { _eq: filters.status } })
-    }
-
-    if (filters.name) {
-      whereConditions.push({ name: { _ilike: `%${filters.name}%` } })
-    }
-
-    const variables = {}
-    if (filters.limit) {
-      variables.limit = filters.limit
-    }
-    if (whereConditions.length > 0) {
-      variables.where = whereConditions.length === 1 ?
-        whereConditions[0] :
-        { _and: whereConditions }
-    }
-
-    const result = await graphql(query, variables)
-
-    if (result.error) {
-      throw new Error(`Failed to list files: ${JSON.stringify(result.error)}`)
-    }
-
-    // When using folder relationship filtering, null result means no matches
-    if (result.data?.searchFile === null) {
-      return []
-    }
-
-    return result.data?.searchFile || []
-
-  } catch (error) {
-    throw error
+  if (filters.status) {
+    whereConditions.push({ status: { _eq: filters.status } })
   }
+
+  if (filters.name) {
+    whereConditions.push({ name: { _ilike: `%${filters.name}%` } })
+  }
+
+  const variables = {}
+  if (filters.limit) {
+    variables.limit = filters.limit
+  }
+  if (whereConditions.length > 0) {
+    variables.where = whereConditions.length === 1 ?
+      whereConditions[0] :
+      { _and: whereConditions }
+  }
+
+  const result = await graphql(query, variables)
+
+  // When using folder relationship filtering, null result means no matches.
+  if (result?.searchFile === null) {
+    return []
+  }
+
+  return result?.searchFile ?? []
 }
 
 /**
  * Delete a file from EYWA file service.
  */
 export async function deleteFile(fileUuid) {
-  try {
-    const mutation = `mutation DeleteFile($uuid: UUID!) {
+  const mutation = `mutation DeleteFile($uuid: UUID!) {
             deleteFile(euuid: $uuid)
         }`
 
-    const result = await graphql(mutation, { uuid: fileUuid })
-
-    if (result.error) {
-      throw new Error(`Failed to delete file: ${JSON.stringify(result.error)}`)
-    }
-
-    return result.data?.deleteFile === true
-
-  } catch (error) {
-    throw error
-  }
+  const result = await graphql(mutation, { uuid: fileUuid })
+  return result?.deleteFile === true
 }
 
 // ============================================================================
-// Folder Operations  
+// Folder Operations
 // ============================================================================
 
 /**
  * Create a new folder in EYWA file service.
  */
 export async function createFolder(folderData) {
-  try {
-    const mutation = `mutation CreateFolder($folder: FolderInput!) {
+  const mutation = `mutation CreateFolder($folder: FolderInput!) {
             stackFolder(data: $folder) {
                 euuid
                 name
@@ -642,27 +565,15 @@ export async function createFolder(folderData) {
             }
         }`
 
-    const variables = { folder: folderData }
-
-    const result = await graphql(mutation, variables)
-
-    if (result.error) {
-      throw new Error(`Failed to create folder: ${JSON.stringify(result.error)}`)
-    }
-
-    return result.data?.stackFolder
-
-  } catch (error) {
-    throw error
-  }
+  const result = await graphql(mutation, { folder: folderData })
+  return result?.stackFolder ?? null
 }
 
 /**
  * List folders in EYWA file service.
  */
 export async function listFolders(filters = {}) {
-  try {
-    const query = `query ListFolders($limit: Int, $where: searchFolderOperator) {
+  const query = `query ListFolders($limit: Int, $where: searchFolderOperator) {
             searchFolder(_limit: $limit, _where: $where, _order_by: {name: asc}) {
                 euuid
                 name
@@ -675,56 +586,45 @@ export async function listFolders(filters = {}) {
             }
         }`
 
-    const parentFilter = filters.parent
-    const whereConditions = []
+  const parentFilter = filters.parent
+  const whereConditions = []
 
-    if (filters.name) {
-      whereConditions.push({ name: { _ilike: `%${filters.name}%` } })
-    }
-
-    if (parentFilter !== undefined) {
-      if (parentFilter === null) {
-        // Root folders only
-        whereConditions.push({ parent: { _is_null: true } })
-      } else if (parentFilter.euuid) {
-        whereConditions.push({ parent: { euuid: { _eq: parentFilter.euuid } } })
-      } else if (parentFilter.path) {
-        whereConditions.push({ parent: { path: { _eq: parentFilter.path } } })
-      } else {
-        throw new Error('Invalid parent filter - must be null, {euuid: ...}, or {path: ...}')
-      }
-    }
-
-    const variables = {}
-    if (filters.limit) {
-      variables.limit = filters.limit
-    }
-    if (whereConditions.length > 0) {
-      variables.where = whereConditions.length === 1 ?
-        whereConditions[0] :
-        { _and: whereConditions }
-    }
-
-    const result = await graphql(query, variables)
-
-    if (result.error) {
-      throw new Error(`Failed to list folders: ${JSON.stringify(result.error)}`)
-    }
-
-    return result.data?.searchFolder || []
-
-  } catch (error) {
-    throw error
+  if (filters.name) {
+    whereConditions.push({ name: { _ilike: `%${filters.name}%` } })
   }
+
+  if (parentFilter !== undefined) {
+    if (parentFilter === null) {
+      whereConditions.push({ parent: { _is_null: true } })
+    } else if (parentFilter.euuid) {
+      whereConditions.push({ parent: { euuid: { _eq: parentFilter.euuid } } })
+    } else if (parentFilter.path) {
+      whereConditions.push({ parent: { path: { _eq: parentFilter.path } } })
+    } else {
+      throw new EywaError('Invalid parent filter - must be null, {euuid: ...}, or {path: ...}')
+    }
+  }
+
+  const variables = {}
+  if (filters.limit) {
+    variables.limit = filters.limit
+  }
+  if (whereConditions.length > 0) {
+    variables.where = whereConditions.length === 1 ?
+      whereConditions[0] :
+      { _and: whereConditions }
+  }
+
+  const result = await graphql(query, variables)
+  return result?.searchFolder ?? []
 }
 
 /**
  * Get information about a specific folder.
  */
 export async function getFolderInfo(data) {
-  try {
-    const query = data.euuid ?
-      `query GetFolder($euuid: UUID!) {
+  const query = data.euuid ?
+    `query GetFolder($euuid: UUID!) {
                 getFolder(euuid: $euuid) {
                     euuid
                     name
@@ -736,7 +636,7 @@ export async function getFolderInfo(data) {
                     }
                 }
             }` :
-      `query GetFolder($path: String!) {
+    `query GetFolder($path: String!) {
                 getFolder(path: $path) {
                     euuid
                     name
@@ -749,39 +649,20 @@ export async function getFolderInfo(data) {
                 }
             }`
 
-    const variables = data.euuid ? { euuid: data.euuid } : { path: data.path }
+  const variables = data.euuid ? { euuid: data.euuid } : { path: data.path }
 
-    const result = await graphql(query, variables)
-
-    if (result.error) {
-      throw new Error(`Failed to get folder info: ${JSON.stringify(result.error)}`)
-    }
-
-    return result.data?.getFolder || null
-
-  } catch (error) {
-    throw error
-  }
+  const result = await graphql(query, variables)
+  return result?.getFolder ?? null
 }
 
 /**
  * Delete a folder from EYWA file service.
  */
 export async function deleteFolder(folderUuid) {
-  try {
-    const mutation = `mutation DeleteFolder($uuid: UUID!) {
+  const mutation = `mutation DeleteFolder($uuid: UUID!) {
             deleteFolder(euuid: $uuid)
         }`
 
-    const result = await graphql(mutation, { uuid: folderUuid })
-
-    if (result.error) {
-      throw new Error(`Failed to delete folder: ${JSON.stringify(result.error)}`)
-    }
-
-    return result.data?.deleteFolder === true
-
-  } catch (error) {
-    throw error
-  }
+  const result = await graphql(mutation, { uuid: folderUuid })
+  return result?.deleteFolder === true
 }

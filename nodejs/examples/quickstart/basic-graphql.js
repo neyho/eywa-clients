@@ -17,6 +17,7 @@ async function main() {
     eywa.update_task('PROCESSING');
     
     // Example 1: Simple query
+    // graphql() returns the GraphQL `data` field directly — no `.data` wrapper.
     console.log('1. Simple query example:');
     const users = await eywa.graphql(`
       query {
@@ -26,8 +27,8 @@ async function main() {
         }
       }
     `);
-    console.log('Users:', users.data.searchUser);
-    
+    console.log('Users:', users.searchUser);
+
     // Example 2: Query with variables
     console.log('\\n2. Query with variables:');
     const userById = await eywa.graphql(`
@@ -38,13 +39,18 @@ async function main() {
         }
       }
     `, { id: 'some-user-id' });
-    console.log('User by ID:', userById);
-    
+    console.log('User by ID:', userById?.getUser);
+
     eywa.info('GraphQL examples completed');
     eywa.close_task('SUCCESS');
-    
+
   } catch (error) {
-    console.error('❌ GraphQL error:', error.message);
+    // EywaGraphQLError carries .code, .data, .query, .variables for diagnostics.
+    if (error instanceof eywa.EywaGraphQLError) {
+      console.error('❌ GraphQL error:', error.message, 'code=', error.code, 'data=', error.data);
+    } else {
+      console.error('❌ Error:', error.message);
+    }
     eywa.error(`GraphQL example failed: ${error.message}`);
     eywa.close_task('ERROR');
   }

@@ -8,13 +8,14 @@ Version with Windows compatibility fixes for STDIO pipe handling.
 """
 
 import asyncio
-import sys
+import base64
 import json
+import logging
 import os
 import platform
-import logging
-import base64
-from datetime import datetime, date
+import sys
+from datetime import date, datetime
+
 from nanoid import generate as nanoid
 
 # Set up logging
@@ -645,6 +646,24 @@ async def graphql(query, variables=None):
     return response
 
 
+async def access_token(expires_in: int = 3600):
+    """Request a short-lived access token bound to this robot's currently-
+    executing root task.
+
+    `expires_in` sets the token TTL in seconds (default 3600).
+
+    Returns a dict with `token`, `expires_in`, and `token_type`. Pass `token`
+    to a downstream app (e.g. a mobile test app, a headless browser session)
+    so it can authenticate back to EYWA on behalf of this robot. The token is
+    valid only while the robot's root task is active.
+    """
+    response = await graphql(
+        "mutation($expires_in: Int) { requestAccessToken(expires_in: $expires_in) { token expires_in token_type } }",
+        {"expires_in": expires_in},
+    )
+    return (response or {}).get("requestAccessToken")
+
+
 # File operations are now available as a separate module:
 # from eywa_files import upload, download, list, etc.
 #
@@ -676,15 +695,15 @@ def open_pipe():
 def exit(status=0):
     global __stdin__task__
 
-    if __stdin__task__ is not None:
-        __stdin__task__.cancel()
-
     try:
         # Try to reset STDIN to blocking mode
         if hasattr(os, "set_blocking"):
             os.set_blocking(sys.stdin.fileno(), True)
     except (AttributeError, OSError) as e:
         logger.debug(f"Could not reset STDIN blocking mode: {e}")
+
+    if __stdin__task__ is not None:
+        __stdin__task__.cancel()
 
     # Clean shutdown
     try:

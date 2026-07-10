@@ -52,6 +52,8 @@ type Mutation {
   @robot(
     euuid: "62fa3d62-3511-4769-830e-03ba43e3064b"
     name: "Webdriver Google BREST"
+    max_concurrent: 2
+    max_per_location: 1
   )
   @clipboard_input
   @execute(commands: [
@@ -107,8 +109,10 @@ type Mutation {
     euuid: "612870a8-d031-480c-8552-857cfbda0967"
     name: "Webdriver schedule example"
     schedule: "0 0/30"
-    task_message: "Schedule triggered!")
-    @execute(commands: [
+    task_message: "Schedule triggered!"
+    max_concurrent: 1
+  )
+  @execute(commands: [
     "cd py"
     "python -m examples.webdriver"])
 
@@ -174,6 +178,27 @@ type Mutation {
     @execute(commands: [
     "cd py"
     "python examples/simple_files_demo.py"])
+
+
+  """Example file input robot. Receives file reference uploaded through
+  EYWA file service in task data, downloads content and echoes file
+  metadata back as report"""
+  pythonFileInputExample(
+    document: TaskFile
+    @file(accept: [".pdf", ".txt", ".csv", ".json"], max_size: 10485760)
+    @label(value: "Document")
+    note: String
+    @label(value: "Note")
+    @placeholder(value: "Optional note")
+  ):STDResult
+  @form_input
+  @robot(
+    euuid: "4d5e6f78-90ab-cdef-1234-56789abcdef0"
+    name: "Python File Input Example"
+    task_message: "Processing file {{document.name}}")
+    @execute(commands: [
+    "cd py"
+    "python -m examples.file_input"])
 
 
   """Comprehensive task reporting test with structured reports.

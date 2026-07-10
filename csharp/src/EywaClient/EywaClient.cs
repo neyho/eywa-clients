@@ -84,6 +84,25 @@ public class Eywa : IDisposable
     }
     
     /// <summary>
+    /// Request a short-lived access token bound to this robot's currently-executing
+    /// root task. Server derives robot + task from the authenticated caller; no args.
+    /// Returns null if the mutation came back without a payload.
+    /// </summary>
+    public async Task<AccessTokenInfo?> RequestAccessTokenAsync()
+    {
+        var response = await GraphQLAsync(
+            "mutation { requestAccessToken { token expires_in token_type } }"
+        );
+        var node = response?["requestAccessToken"];
+        if (node == null) return null;
+        return new AccessTokenInfo(
+            node["token"]?.GetValue<string>() ?? string.Empty,
+            node["expires_in"]?.GetValue<int>() ?? 0,
+            node["token_type"]?.GetValue<string>() ?? string.Empty
+        );
+    }
+
+    /// <summary>
     /// Send JSON-RPC request (low-level access)
     /// </summary>
     public async Task<JsonNode?> SendRequestAsync(string method, object? parameters = null)
@@ -115,6 +134,12 @@ public class Eywa : IDisposable
         _jsonRpcClient.Dispose();
     }
 }
+
+/// <summary>
+/// Short-lived JWT minted for a robot's currently-executing root task.
+/// Mirrors the AccessToken/AccessTokenInfo shapes in the go/nodejs SDKs.
+/// </summary>
+public record AccessTokenInfo(string Token, int ExpiresIn, string TokenType);
 
 /// <summary>
 /// GraphQL-specific exception

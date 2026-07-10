@@ -25,6 +25,10 @@ import {
   exception,
   report,
   graphql,
+  access_token,
+  EywaError,
+  EywaRPCError,
+  EywaGraphQLError,
   SUCCESS,
   ERROR,
   PROCESSING,
@@ -65,13 +69,13 @@ export default {
   send_notification,
   register_handler,
   open_pipe,
-  
+
   // Task management
   get_task,
   update_task,
   return_task,
   close_task,
-  
+
   // Logging methods
   log,
   info,
@@ -82,7 +86,8 @@ export default {
   exception,
   report,
   graphql,
-  
+  access_token,
+
   // File operations (GraphQL-aligned)
   upload,
   uploadStream,
@@ -92,16 +97,21 @@ export default {
   fileInfo,
   list,
   deleteFile,
-  
+
   // Folder operations (GraphQL-aligned)
   createFolder,
   listFolders,
   getFolderInfo,
   deleteFolder,
-  
+
   // Constants
   rootUuid,
   rootFolder,
+
+  // Errors
+  EywaError,
+  EywaRPCError,
+  EywaGraphQLError,
   FileUploadError,
   FileDownloadError,
   SUCCESS,
@@ -130,7 +140,8 @@ export {
   exception,
   report,
   graphql,
-  
+  access_token,
+
   // File operations (GraphQL-aligned)
   upload,
   uploadStream,
@@ -140,16 +151,21 @@ export {
   fileInfo,
   list,
   deleteFile,
-  
+
   // Folder operations (GraphQL-aligned)
   createFolder,
   listFolders,
   getFolderInfo,
   deleteFolder,
-  
+
   // Constants
   rootUuid,
   rootFolder,
+
+  // Errors
+  EywaError,
+  EywaRPCError,
+  EywaGraphQLError,
   FileUploadError,
   FileDownloadError,
   SUCCESS,

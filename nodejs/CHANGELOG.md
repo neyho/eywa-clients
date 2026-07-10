@@ -5,6 +5,48 @@ All notable changes to eywa-client will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed — Data endpoint contract drift
+
+The SDK had drifted from the actual `eywa.datasets.graphql` server contract.
+The server returns `{ jsonrpc, id, result: <GraphQL data, unwrapped> }` on
+success and `{ jsonrpc, id, error: { code, message, data } }` on failure —
+there is no `{ data, errors }` envelope at this layer. The SDK was reading
+`result.data?.X` and checking `result.error`, so every file/folder operation
+was effectively broken.
+
+- **`graphql(query, variables)`** now resolves with the GraphQL `data` field
+  directly (matches the bb and Python reference clients). The bogus
+  `GraphQLResponse<T>` wrapper type has been removed from `eywa.d.ts`.
+- **`report()`** no longer reads `result.data?.stackTaskReport` — it now
+  correctly accesses `result.stackTaskReport`.
+- **`files.js`** — every upload/download/list/delete/folder operation has
+  been rewritten to read fields off the unwrapped result. Dead
+  `if (result.error)` branches removed (errors throw, they don't return).
+- **`examples/quickstart/basic-graphql.js`** — fixed to use the unwrapped
+  contract (`users.searchUser`, not `users.data.searchUser`).
+
+### Added — Structured error reporting
+
+- **`EywaError`** — base class for every error thrown by the client. Carries
+  `.code`, `.data`, and `.cause`.
+- **`EywaRPCError`** — thrown for any JSON-RPC failure. Adds `.method`.
+- **`EywaGraphQLError`** — thrown by `graphql()` for GraphQL failures. Adds
+  `.query` and `.variables` so the failing request is recoverable from the
+  error itself.
+- **`FileUploadError`** and **`FileDownloadError`** now extend `EywaError`
+  and preserve the originating error on `.cause`, so callers can drill into
+  GraphQL or HTTP details without losing the wrapped friendly message.
+
+### Fixed — stdin parser
+
+The previous implementation tried to `JSON.parse(buffer)` after every chunk
+and silently buffered forever if two messages arrived in one read. The new
+parser is line-delimited (matches the bb/py reference clients and the
+server's `(str response \newline)` emitter), so it handles multiple messages
+per chunk and large messages spanning multiple chunks correctly.
+
 ## [0.4.0] - 2025-01-11
 
 ### Added
