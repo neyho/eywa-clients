@@ -39,10 +39,14 @@ input Arg2 {
 
 
 type Mutation {
+  # BROKEN ON PURPOSE — test branch for syncRobotWorktree (manual damage recovery).
+  # onGitUpdate fails deterministically until the "environment is fixed":
+  #   touch /tmp/eywa-sync-fixed
+  # then run the syncRobotWorktree mutation and watch the damage clear.
   onGitUpdate:STDResult
   @execute(commands: [
-    "cd nodejs"
-    "npm ci"
+    "echo 'onGitUpdate will fail until /tmp/eywa-sync-fixed exists. Fix: touch /tmp/eywa-sync-fixed, then Retry sync.'"
+    "test -f /tmp/eywa-sync-fixed"
   ])
 
   """Example webdriver robot that opens browser than
